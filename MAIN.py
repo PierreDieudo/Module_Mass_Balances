@@ -41,7 +41,7 @@ Membrane = {
     "Pressure_Permeate": 0.2,                   # bar
     "Area": 4e4,                                # m2
     "Permeance": [10000, 500, 150, 100],        # GPU
-    "Sweep_Option": True,                      # True or False - use a sweep or not
+    "Sweep_Option": False,                      # True or False - use a sweep or not
     "Sweep_Source": 'Recycling',                # 'User' or 'Recycling' - where the sweep comes from
     "Recycling_Ratio": 0.1,                     # Fraction of a stream (likely retentate) being sent back as sweep 
     "Pressure_Drop": True,
@@ -132,37 +132,50 @@ def Run_Module():
 
     return profile
 
+def plot_composition_profiles(profile):  
+   num_components = len(Membrane["Permeance"])  
+   Norm_length = (max(profile['Element']) - profile['Element']) / (max(profile['Element']) - 1)  
 
-def plot_composition_profiles(profile):
-    num_components = len(Membrane["Permeance"])
-    elements = profile['Element'] if 'Element' in profile.columns else profile.index
+   fig, axes = plt.subplots(1, 2, figsize=(16, 5))  
 
-    fig, axes = plt.subplots(1, 2, figsize=(16, 5))
+   # Retentate composition plot  
+   for j in range(num_components):  
+       col = f'x{j+1}'  
+       if col in profile.columns:  
+           axes[0].plot(Norm_length, profile[col] * 100, label=f'Component {j+1}')  
+   axes[0].set_xlabel('Normalised Length')  
+   axes[0].set_ylabel('Retentate Composition (%)')  
+   axes[0].set_title('Retentate Composition Profile')  
+   axes[0].legend()  
+   axes[0].grid(True)  
 
-    # Retentate composition plot
-    for j in range(num_components):
-        col = f'x{j+1}'
-        if col in profile.columns:
-            axes[0].plot(elements, profile[col] * 100, label=f'Component {j+1}')
-    axes[0].set_xlabel('Element')
-    axes[0].set_ylabel('Retentate Composition (%)')
-    axes[0].set_title('Retentate Composition Profile')
-    axes[0].legend()
-    axes[0].grid(True)
+   # Permeate composition plot  
+   if not Membrane["Sweep_Option"]:   # Filter out the sweep entry based on configuration if no sweep (to avoid composition jump from zero)
+       if Membrane["Solving_Method"] == 'CC':  
+           # Ignore element 1  
+           permeate_profile = profile[profile['Element'] != 1]  
+           norm_length_perm = (max(profile['Element']) - permeate_profile['Element']) / (max(profile['Element']) - 2)  
+       elif Membrane["Solving_Method"] == 'CO':  
+           # Ignore last element  
+           N = max(profile['Element'])  
+           permeate_profile = profile[profile['Element'] != N]  
+           norm_length_perm = (N - permeate_profile['Element']) / (N - 2)  
+   else:  
+       permeate_profile = profile  
+       norm_length_perm = Norm_length  
 
-    # Permeate composition plot
-    for j in range(num_components):
-        col = f'y{j+1}'
-        if col in profile.columns:
-            axes[1].plot(elements, profile[col] * 100, label=f'Component {j+1}')
-    axes[1].set_xlabel('Element')
-    axes[1].set_ylabel('Permeate Composition (%)')
-    axes[1].set_title('Permeate Composition Profile')
-    axes[1].legend()
-    axes[1].grid(True)
+   for j in range(num_components):  
+       col = f'y{j+1}'  
+       if col in permeate_profile.columns:  
+           axes[1].plot(norm_length_perm, permeate_profile[col] * 100, label=f'Component {j+1}')  
+   axes[1].set_xlabel('Normalised Length')  
+   axes[1].set_ylabel('Permeate Composition (%)')  
+   axes[1].set_title('Permeate Composition Profile')  
+   axes[1].legend()  
+   axes[1].grid(True)  
 
-    plt.tight_layout()
-    plt.show()
+   plt.tight_layout()  
+   plt.show()
 
 profile = Run_Module()
 

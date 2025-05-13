@@ -311,7 +311,7 @@ def mass_balance_CC(vars):
 
     def module_mass_balance_error(vars, user_vars):
 
-        vars[0:J] = vars[0:J] / sum(vars[0:J])  # Normalize the first J elements to 1
+        vars[0:J] = vars[0:J] / sum(vars[0:J])  # Normalise the first J elements to 1
 
         shooting_error, _ = module_mass_balance(vars, user_vars)
         return shooting_error

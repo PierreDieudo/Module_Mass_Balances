@@ -51,10 +51,10 @@ def Hub_Connector(Export_to_mass_balance): #general because it will call the cor
             
         max_delta = module_length_calc(L)
        
-        # Penalize values of max_delta that exceed 0.4
+        # Penalise values of max_delta that exceed 0.4
         if max_delta > 0.4:
             return max_delta - 0.4 #penalty
-        # Minimize the difference between max_delta and 0.4
+        # Minimise the difference between max_delta and 0.4
         return 0.4 - max_delta
 
     result = minimize_scalar(objective, bounds=(1e-1, 5), method='bounded')

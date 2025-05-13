@@ -12,6 +12,7 @@
     <Name>Module_Mass_Balances</Name>
     <RootNamespace>Module_Mass_Balances</RootNamespace>
     <InterpreterId>Global|PythonCore|3.12</InterpreterId>
+    <SuppressPackageInstallationPrompt>True</SuppressPackageInstallationPrompt>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
