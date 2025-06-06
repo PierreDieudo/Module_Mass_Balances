@@ -34,7 +34,7 @@ def mass_balance_CC(vars):
 
     #Number of elements N
     J = len(Membrane["Feed_Composition"])
-    min_elements = [1]  # minimum of 2 elements
+    min_elements = [3]  # minimum of 3 elements
     for i in range(J):  # (Coker and Freeman, 1998)
         N_i = (Membrane["Feed_Flow"] * (1 - Membrane["Feed_Composition"][i] + 0.005) * Membrane["Permeance"][i] * Membrane["Pressure_Feed"] * Membrane["Feed_Composition"][i]) / (Membrane["Feed_Flow"] * 0.005)
         min_elements.append(N_i)
@@ -146,23 +146,24 @@ def mass_balance_CC(vars):
         # Guessed composition and flowrates for element N permeate
         x_guess = vars[:J]
         cut_r_guess = vars[J]
-        pP_0 = Membrane["Pressure_Permeate"] / vars[-1]  # guess for the sweep pressure
-
+        if Membrane["Pressure_Drop"]:
+            pP_0 = Membrane["Pressure_Permeate"] / vars[-1]  # guess for the sweep pressure
+        else: pP_0 = Membrane["Pressure_Permeate"]
 
         # Create a DataFrame to store the results
-        columns = ['Element'] + [f'x{i+1}' for i in range(J)] + [f'y{i+1}' for i in range(J)] + ['cut_r/Qr', 'cut_p/Qp', 'P_perm']
+        columns = ['Element'] + [f'x{i+1}' for i in range(J)] + [f'y{i+1}' for i in range(J)] + ['cut_r/Qr', 'cut_p/Qp', 'P_perm', 'Error']
 
         # Preallocate for n_elements
         df = pd.DataFrame(index=range(n_elements), columns=columns)
 
         # Set the element 1 with Sweep known values and guessed retentate value
-        df.loc[0] = [1] + list(x_guess) + list(Membrane["Sweep_Composition"]) + [cut_r_guess, cut_p_0, pP_0]  # element 1 (retentate/sleep side)
+        df.loc[0] = [1] + list(x_guess) + list(Membrane["Sweep_Composition"]) + [cut_r_guess, cut_p_0, pP_0, 0]  # element 1 (retentate/sleep side)
 
 
         for k in range(n_elements - 1):
             # Input vector of known/calculated values from element k-1
 
-            inputs = df.loc[k, df.columns[1:]].values
+            inputs = df.loc[k, df.columns[1:-1]].values #ignoring -1 being mass balance error
 
             # Initial guess for the element k
             guess = [0.5] * (2 * J + 2)
@@ -181,7 +182,7 @@ def mass_balance_CC(vars):
             element_output = sol_element.x
         
             if sol_element.cost > 1e-5:
-                print(f'Large mass balance closure error at element {k}; error: {sol_element.cost:.3e}; with residuals {sol_element.fun}')
+                print(f'Large mass balance closure error at element {k}')#"error: {sol_element.cost:.3e}; with residuals {sol_element.fun}')
         
             # Calculate the pressure drop for the permeate side
             y_k = element_output[J:2*J]  # Permeate composition
@@ -195,14 +196,14 @@ def mass_balance_CC(vars):
             else:
                 # Calculate the pressure drop
                 dP = pressure_drop(y_k, Qp_k, pP_k)
-                if dP/pP_k > 1e-4:
-                    pP_new = Membrane["Pressure_Permeate"] - dP
+                if dP > 1:
+                    pP_new = pP_k - dP
                 else:
                     pP_new = pP_k #negligible pressure drop: helps with stability of the solver
     
  
             # Update the DataFrame with the results
-            df_element = np.concatenate(([k+2], element_output, [pP_new]))
+            df_element = np.concatenate(([k+2], element_output, [pP_new], [sol_element.cost]))
             df.loc[k + 1] = df_element
 
 
@@ -335,7 +336,7 @@ def mass_balance_CC(vars):
 
     # Display the mass balance closure error of the penultimate element - as an indicator
     penultimate_element = n_elements - 1
-    penultimate_inputs = Solved_membrane_profile.loc[penultimate_element, Solved_membrane_profile.columns[1:]].values
+    penultimate_inputs = Solved_membrane_profile.loc[penultimate_element, Solved_membrane_profile.columns[1:-2]].values
     penultimate_guess = [0.5] * (2 * J + 2)
     penultimate_sol = least_squares(
         mass_balance,
@@ -355,11 +356,11 @@ def mass_balance_CC(vars):
     
     x_ret = Solved_membrane_profile.iloc[0, 1:J+1].values
     y_perm = Solved_membrane_profile.iloc[-1, J+1:2*J+1].values
-    cut_r = Solved_membrane_profile.iloc[0, -3]
-    cut_p = Solved_membrane_profile.iloc[-1, -2]
+    cut_r = Solved_membrane_profile.iloc[0, -4]
+    cut_p = Solved_membrane_profile.iloc[-1, -3]
     Qr = cut_r * Total_flow
     Qp = cut_p * Total_flow
-    P_perm = Solved_membrane_profile.iloc[-1, -1] * 1e-5  # Permeate pressure in bar at the last element
+    P_perm = Solved_membrane_profile.iloc[-1, -2] * 1e-5  # Permeate pressure in bar at the last element
     CC_results = x_ret, y_perm, Qr, Qp
 
     profile = Solved_membrane_profile.copy()

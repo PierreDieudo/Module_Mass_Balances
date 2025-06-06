@@ -30,7 +30,7 @@ def mass_balance_CO(vars):
 
     #Number of elements N
     J = len(Membrane["Feed_Composition"])
-    min_elements = [1]  # minimum of 2 elements
+    min_elements = [3]  # minimum of 3 elements
     for i in range(J):  # (Coker and Freeman, 1998)
         N_i = (Membrane["Feed_Flow"] * (1 - Membrane["Feed_Composition"][i] + 0.005) * Membrane["Permeance"][i] * Membrane["Pressure_Feed"] * Membrane["Feed_Composition"][i]) / (Membrane["Feed_Flow"] * 0.005)
         min_elements.append(N_i)
@@ -132,18 +132,18 @@ def mass_balance_CO(vars):
     ###-----------------------------------------------------------'''
 
     # Create a DataFrame to store the results
-    columns = ['Element'] + [f'x{i+1}' for i in range(J)] + [f'y{i+1}' for i in range(J)] + ['cut_r/Qr', 'cut_p/Qp','P_Perm']
+    columns = ['Element'] + [f'x{i+1}' for i in range(J)] + [f'y{i+1}' for i in range(J)] + ['cut_r/Qr', 'cut_p/Qp','P_Perm','Error']
 
     # Preallocate for n_elements
     Solved_membrane_profile = pd.DataFrame(index=range(n_elements), columns=columns)
 
     # Set the element N with feed known values and guessed permeate value
-    Solved_membrane_profile.loc[0] = [n_elements] + list(Membrane["Feed_Composition"]) + list(Membrane["Sweep_Composition"]) + [cut_r_N, cut_p_N, Membrane["Pressure_Permeate"] ]  # element N (Feed/Sweep side)
+    Solved_membrane_profile.loc[0] = [n_elements] + list(Membrane["Feed_Composition"]) + list(Membrane["Sweep_Composition"]) + [cut_r_N, cut_p_N, Membrane["Pressure_Permeate"],0 ]  # element N (Feed/Sweep side)
 
     for k in range(n_elements - 1):
         # Input vector of known/calculated values from element k+1
 
-        inputs = Solved_membrane_profile.loc[k, Solved_membrane_profile.columns[1:]].values
+        inputs = Solved_membrane_profile.loc[k, Solved_membrane_profile.columns[1:-1]].values #ignoring -1 being mass balance error
 
         # Initial guess for the element k
         guess = [0.5] * (2 * J + 2)
@@ -162,7 +162,7 @@ def mass_balance_CO(vars):
         element_output = sol_element.x
         
         if sol_element.cost > 1e-5:
-            print(f'Large mass balance closure error at element {k}; error: {sol_element.cost:.3e}; with residuals {sol_element.fun}')
+                print(f'{'Large mass balance closure error at element {k}')#"error: {sol_element.cost:.3e}; with residuals {sol_element.fun}')
         
         # Calculate the pressure drop for the permeate side
         y_k = element_output[J:2*J]                     # Permeate composition
@@ -175,15 +175,14 @@ def mass_balance_CO(vars):
         else:
             # Calculate the pressure drop
             dP = pressure_drop(y_k, Qp_k, pP_k)
-
-            if dP/pP_k > 1e-4:
-                pP_new = Membrane["Pressure_Permeate"] - dP
+            if dP>1:
+                pP_new = pP_k - dP
             else:
                 pP_new = pP_k #negligible pressure drop: helps with stability of the solver
     
     
         # Update the DataFrame with the results
-        df_element = np.concatenate(([n_elements-1-k], element_output, [pP_new]))
+        df_element = np.concatenate(([n_elements-1-k], element_output, [pP_new],sol_element.cost))
         Solved_membrane_profile.loc[k + 1] = df_element
 
         #print(f'mass balance closure error: {sol_element.cost:.3e}')
@@ -191,12 +190,10 @@ def mass_balance_CO(vars):
     
     x_ret = Solved_membrane_profile.iloc[-1, 1:J+1].values
     y_perm = Solved_membrane_profile.iloc[-1, J+1:2*J+1].values
-    cut_r = Solved_membrane_profile.iloc[-1, -3]
-    cut_p = Solved_membrane_profile.iloc[-1, -2]
+    cut_r = Solved_membrane_profile.iloc[-1, -4]
+    cut_p = Solved_membrane_profile.iloc[-1, -3]
     Qr = cut_r * Total_flow
     Qp = cut_p * Total_flow
-    P_perm = Solved_membrane_profile.iloc[-1, -1] * 1e-5  # Permeate pressure in bar at the last element
-
     CO_results = x_ret, y_perm, Qr, Qp
     
     profile = Solved_membrane_profile.copy()

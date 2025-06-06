@@ -27,6 +27,7 @@
     <Compile Include="CO.py" />
     <Compile Include="CC.py" />
     <Compile Include="Hub.py" />
+    <Compile Include="MAIN_dQ.py" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Requirements.txt" />

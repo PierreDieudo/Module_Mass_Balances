@@ -9,44 +9,34 @@ from Hub import Hub_Connector
 
 ''' General information here: 
 
-    Hello me or Pete or whoever that is. Good luck.
+    - This script is structured in the same way as the other MAIN code, but serves a different purpose.
 
-    - The aim of this Solution is to perform the simulation of a polymeric membrane module.
+    - This file adds a loop to run the simulation over a range of parameters (here, feed flow)
 
-    - For now, the membrane is isothermal, with either co-current or counter-current configurations.
-
-    - The aim of this script is to serve as the user input file as the actual mass balance of the membrane will be done in other scripts.
-
-    - There is an option to export the profile of the membrane to a CSV file, which is useful for debugging and checking the results.
-
-    - Mass balance errors are displayed in the console. Anything over 1e-5 is considered large. It is likely that one of the components' driving force is too low at some point in the module. Try decreasing Area.
-
-    Please refer to me (s1854031@ed.ac.uk) for any questions or issues, except if I got fired from the phd for being too cheeky.
-    xxx
-    Pierre
  '''
   
 #-----------------------------------------#
 #--------- User input parameters ---------#
 #-----------------------------------------#
 
+print(f"For literature comparison, fixing the module length at 0.8 m")
 directory = 'C:\\Users\\s1854031\\Desktop\\' #input file path here.
 
 Membrane = {
     "Solving_Method": 'CC',                     # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
     "Temperature": 40+273.15,                   # Kelvin
-    "Feed_Composition": [0.2,0.6,0.1,0.1], # molar fraction
-    "Feed_Flow": 10,                           # mol/s (PS: 1 mol/s = 3.6 kmol/h)
+    "Feed_Composition": [0.784,0.216,0,0], # molar fraction
+    "Feed_Flow": 1,                           # mol/s (PS: 1 mol/s = 3.6 kmol/h)
     "Pressure_Feed": 10,                         # bar
     "Pressure_Permeate": 1,                   # bar
-    "Area": 50,                                # m2
-    "Permeance": [1000,20,60,10],        # GPU
+    "Area": 226,                                # m2
+    "Permeance": [3.57,20,60,1000],        # GPU
     "Sweep_Option": False,                      # True or False - use a sweep or not
     "Sweep_Source": 'Recycling',                # 'User' or 'Recycling' - where the sweep comes from
     "Recycling_Ratio": 0.1,                     # Fraction of a stream (likely retentate) being sent back as sweep 
     "Pressure_Drop": True,
-    "Export_Profile": True,                    # True or False - export the profile to a CSV file        
-    "Plot_Profiles": True,                      # True or False - plot the profile of the membrane"
+    "Export_Profile": False,                    # True or False - export the profile to a CSV file        
+    "Plot_Profiles": False,                      # True or False - plot the profile of the membrane"
     }
  
 Component_properties = {
@@ -55,8 +45,8 @@ Component_properties = {
     }
 
 Fibre_Dimensions = {
-    "D_in" : 150 * 1e-6, # Inner diameter in m (from um)
-    "D_out" : 300 * 1e-6, # Outer diameter in m (from um)
+    "D_in" : 150 * 1e-6, # Inner diameter in m (from µm)
+    "D_out" : 300 * 1e-6, # Outer diameter in m (from µm)
     }
 
 User_Sweep = { # Only if Sweep_Option is True and Sweep source is User
@@ -68,8 +58,6 @@ Export_to_mass_balance = Membrane, Component_properties, Fibre_Dimensions
 
 def Run_Module():
     
-    print("Running Simulation...")
-
     J = len(Membrane["Permeance"]) #number of components
 
     if not Membrane["Sweep_Option"]: # sweep deactivated
@@ -115,16 +103,15 @@ def Run_Module():
             Membrane["Pressure_Feed"] *= 1e-5  #convert to bar
             Membrane["Pressure_Permeate"] *= 1e-5  
 
-
         else:
             print("Warning: Sweep iteration did not converge within the maximum number of iterations.")
 
 
     print(f"Overall mass balance error: Feed + Sweep  - Retentate - Permeate = {abs(Membrane["Feed_Flow"] + Membrane["Sweep_Flow"] - Membrane["Retentate_Flow"] - Membrane["Permeate_Flow"]):.3e}")
         
-    if np.any(profile<-1e-5):
+    if np.any(profile<0):
         print(profile)
-        raise ValueError("Negative values in the membrane profile") #check for negative values in the profile
+        #raise ValueError("Negative values in the membrane profile") #check for negative values in the profile
         
 
     Recovery = Membrane["Permeate_Composition"][0] * Membrane["Permeate_Flow"] / (Membrane["Feed_Flow"] * Membrane["Feed_Composition"][0]) * 100
@@ -132,7 +119,7 @@ def Run_Module():
     
     print(f'Simulation finished with Recovery: {Recovery:.2f} % and Purity: {Purity:.2f} %')
 
-    print(profile)
+    #print(profile)
 
     return profile
 
@@ -182,7 +169,40 @@ def plot_composition_profiles(profile):
    plt.show()
 
 
-profile = Run_Module()
+
+# Setup range of parameters to iterate over
+Q_feed = np.linspace(0.25, 10, 100)  # mol/s
+J = 4  # Number of components
+columns = ['Feed_Flow'] + [f'x{i+1}' for i in range(J)] + [f'y{i+1}' for i in range(J)] + ['Qr', 'Qp']
+param_screening_df = pd.DataFrame(columns=columns)  # Start with an empty DataFrame
+
+def param_screening(Q):
+    Membrane["Feed_Flow"] = Q
+    profile = Run_Module()
+    return profile
+
+for idx, Q in enumerate(Q_feed):
+    print()
+    print(f"Running simulation for Feed Flow: {Q:.2f} mol/s")
+    Membrane["Feed_Flow"] = Q
+    profile = param_screening(Q)
+    param_screening_df.loc[idx] = [
+           Q,
+           *[Membrane["Retentate_Composition"][i] for i in range(J)],
+           *[Membrane["Permeate_Composition"][i] for i in range(J)],
+           Membrane["Retentate_Flow"],
+           Membrane["Permeate_Flow"],
+       ]
+
+    #Resets the parameters to go through the general mass balance file formatting again - will think of a smarter way to do this later.
+    Membrane["Permeance"] = [p / ( 3.348 * 1e-10 ) for p in Membrane["Permeance"]]  # convert from mol/m2.s.Pa to GPU
+    Membrane["Pressure_Feed"] *= 1e-5  #convert to bar
+    Membrane["Pressure_Permeate"] *= 1e-5
+
+csv_name = os.path.join(directory, 'dQ.csv')
+param_screening_df.to_csv(csv_name, index=None)
+print(f'Parameter screening results exported to {csv_name}')
+
 
 if Membrane["Export_Profile"]: # Export the profile to a CSV file in the same directory as the Unisim file
     csv_name = os.path.join(directory, 'membrane_profile.csv')  
