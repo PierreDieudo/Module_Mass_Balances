@@ -21,7 +21,7 @@ from Hub import Hub_Connector
 
     - Mass balance errors are displayed in the console. Anything over 1e-5 is considered large. It is likely that one of the components' driving force is too low at some point in the module. Try decreasing Area.
 
-    Please refer to me (s1854031@ed.ac.uk) for any questions or issues, except if I got fired from the phd for being too cheeky.
+    Please refer to me (s1854031@ed.ac.uk) for any questions or issues until February 2027 - except if I got fired from the phd before that for being too cheeky.
     xxx
     Pierre
  '''
@@ -33,20 +33,20 @@ from Hub import Hub_Connector
 directory = 'C:\\Users\\s1854031\\Desktop\\' #input file path here.
 
 Membrane = {
-    "Solving_Method": 'CC',                     # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
-    "Temperature": 40+273.15,                   # Kelvin
+    "Solving_Method": 'CO_Molten',                     # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
+    "Temperature": 600+273.15,                   # Kelvin
     "Feed_Composition": [0.2,0.6,0.1,0.1], # molar fraction
     "Feed_Flow": 10,                           # mol/s (PS: 1 mol/s = 3.6 kmol/h)
-    "Pressure_Feed": 10,                         # bar
+    "Pressure_Feed": 2,                         # bar
     "Pressure_Permeate": 1,                   # bar
-    "Area": 50,                                # m2
+    "Area": 2000,                                # m2
     "Permeance": [1000,20,60,10],        # GPU
-    "Sweep_Option": False,                      # True or False - use a sweep or not
-    "Sweep_Source": 'Recycling',                # 'User' or 'Recycling' - where the sweep comes from
-    "Recycling_Ratio": 0.1,                     # Fraction of a stream (likely retentate) being sent back as sweep 
+    "Sweep_Option": True,                  # True or False - use a sweep or not
+    "Sweep_Source": 'User',                # 'User' or 'Recycling' - where the sweep comes from
+    "Recycling_Ratio": 0.1,                # Fraction of a stream (likely retentate) being sent back as sweep 
     "Pressure_Drop": True,
-    "Export_Profile": True,                    # True or False - export the profile to a CSV file        
-    "Plot_Profiles": True,                      # True or False - plot the profile of the membrane"
+    "Export_Profile": False,               # True or False - export the profile to a CSV file        
+    "Plot_Profiles": True,                 # True or False - plot the profile of the membrane"
     }
  
 Component_properties = {
@@ -61,8 +61,12 @@ Fibre_Dimensions = {
 
 User_Sweep = { # Only if Sweep_Option is True and Sweep source is User
     "Sweep_Flow": 3.5,                            # mol/s 
-    "Sweep_Composition": [0, 1,],          # molar fraction
+    "Sweep_Composition": [0, 1,0,0],          # molar fraction
     }
+
+#--------------------------------------#
+#--------- End of User Inputs ---------#
+#--------------------------------------#
 
 Export_to_mass_balance = Membrane, Component_properties, Fibre_Dimensions
 

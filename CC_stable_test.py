@@ -32,10 +32,10 @@ def mass_balance_CC(vars):
     cut_r_N = Membrane["Feed_Flow"] / Total_flow # Cut ratio at the feed side
     cut_p_0 = Membrane["Sweep_Flow"] / Total_flow # Cut ratio at the permeate side
 
-    #Determining minimum number of elements N required - (Coker and Freeman, 1998)
+    #Number of elements N
     J = len(Membrane["Feed_Composition"])
     min_elements = [3]  # minimum of 3 elements
-    for i in range(J):
+    for i in range(J):  # (Coker and Freeman, 1998)
         N_i = (Membrane["Feed_Flow"] * (1 - Membrane["Feed_Composition"][i] + 0.005) * Membrane["Permeance"][i] * Membrane["Pressure_Feed"] * Membrane["Feed_Composition"][i]) / (Membrane["Feed_Flow"] * 0.005)
         min_elements.append(N_i)
     n_elements = min(round(max(min_elements)), 1000)
@@ -79,7 +79,7 @@ def mass_balance_CC(vars):
     ###--------------- Pressure Drop Calculation ----------------###
     ###----------------------------------------------------------'''
 
-    def pressure_drop(composition, Q, P): #change in pressure across the element - Hagen Poiseuille equation
+    def pressure_drop(composition, Q, P): #change in pressure across the element
 
         visc_mix = mixture_visc(composition)                                                # Viscosity of the mixture in Pa.s
         D_in = Fibre_Dimensions["D_in"]                                                     # Inner diameter in m
@@ -113,19 +113,24 @@ def mass_balance_CC(vars):
         cut_r = vars[-2] # retentate flowrate leaving element k - to be exported to next element k+1
         cut_p = vars[-1] # permeate flowrate leaving element k - to be exported to next element k+1
 
+        #print(f'Initial guess {vars}')
+
         Qr = Total_flow * cut_r # retentate flowrate exiting element k
         Qp = Total_flow * cut_p
 
         eqs = [0]*(2*J+2) # empty list to store the equations
+
 
         #molar fractions summing to unity:
         eqs[0] = sum(x) - 1
         eqs[1] = sum(y) - 1
 
         #mass balance for each component across the module
+
+
         for i in range(J):
             eqs[i+2] = ( cut_p_known * y_known[i] + cut_r * x[i] - cut_p * y[i] - cut_r_known * x_known[i] ) #in perm + in ret - out perm - out ret
-
+        
         #flow across membrane --> change in permeate flowrate is equal to the permeation across DA
         for i in range (J):
 
@@ -169,6 +174,7 @@ def mass_balance_CC(vars):
                 mass_balance,  # function to solve
                 guess,  # initial guess
                 args=(inputs, user_vars),  # arguments for the function
+                #bounds= (0, 1),
                 method='lm',
                 xtol = 1e-8,
                 ftol = 1e-8,
@@ -318,6 +324,7 @@ def mass_balance_CC(vars):
         module_mass_balance_error,
         shooting_guess,
         args=(user_vars,),
+        #bounds=(0,1),
         method='trf',
         xtol=1e-8,
         ftol=1e-8,
@@ -329,7 +336,6 @@ def mass_balance_CC(vars):
     if overall_sol.cost > 1e-5: 
         print(f'Large mass balance closure error for overall solution: {overall_sol.cost:.3e}')
 
-    '''
     # Display the mass balance closure error of the penultimate element - as an indicator
     penultimate_element = n_elements - 1
     penultimate_inputs = Solved_membrane_profile.loc[penultimate_element, Solved_membrane_profile.columns[1:-2]].values
@@ -347,7 +353,6 @@ def mass_balance_CC(vars):
     #print(f'Mass balance closure error of penultimate element for CC model: {penultimate_sol.cost:.3e}')
     #print(f'shooting method error: {overall_sol.cost:.3e}')
     #print (Solved_membrane_profile)
-    '''
 
     ''' Solved_membrane_profile is a DataFrame (matrix) with N rows and 2J+3 columns, listing x, y, cut_r, cut_p, and permeate pressure for each element'''
     
@@ -362,6 +367,29 @@ def mass_balance_CC(vars):
 
     profile = Solved_membrane_profile.copy()
 
+    driving_force = np.zeros((n_elements, J))
+    for i in range(J):
+        pp_diff = Membrane["Pressure_Feed"] * profile[f'x{i+1}'] - profile[f'y{i+1}'] * P_perm
+        driving_force[:, i] = pp_diff
+        
+    import matplotlib.pyplot as plt  
+
+    # Plot driving forces for each component versus normalized length of the module  
+    normalized_length = np.linspace(0, 1, n_elements)  # Normalized length of the module  
+
+    plt.figure(figsize=(10, 6))  
+    for i in range(J):  
+       plt.plot(normalized_length, driving_force[:, i], label=f'Component {i+1}')  
+
+    plt.xlabel('Normalized Length of the Module')  
+    plt.ylabel('Driving Force (Pa)')  
+    plt.title('Driving Forces vs Normalized Length of the Module')  
+    plt.legend()  
+    plt.grid(True)  
+    plt.show()
+
+
+    print(driving_force)
 
     return CC_results, profile
 

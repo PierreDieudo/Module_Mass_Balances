@@ -28,6 +28,8 @@
     <Compile Include="CC.py" />
     <Compile Include="Hub.py" />
     <Compile Include="MAIN_dQ.py" />
+    <Compile Include="CC_stable_test.py" />
+    <Compile Include="CO_Molten.py" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Requirements.txt" />

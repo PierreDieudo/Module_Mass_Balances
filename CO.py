@@ -162,7 +162,7 @@ def mass_balance_CO(vars):
         element_output = sol_element.x
         
         if sol_element.cost > 1e-5:
-                print(f'{'Large mass balance closure error at element {k}')#"error: {sol_element.cost:.3e}; with residuals {sol_element.fun}')
+                print(f'Large mass balance closure error at element {k}')
         
         # Calculate the pressure drop for the permeate side
         y_k = element_output[J:2*J]                     # Permeate composition
@@ -182,7 +182,7 @@ def mass_balance_CO(vars):
     
     
         # Update the DataFrame with the results
-        df_element = np.concatenate(([n_elements-1-k], element_output, [pP_new],sol_element.cost))
+        df_element = np.concatenate(([n_elements-1-k], element_output, [pP_new],[sol_element.cost]))
         Solved_membrane_profile.loc[k + 1] = df_element
 
         #print(f'mass balance closure error: {sol_element.cost:.3e}')

@@ -80,9 +80,11 @@ def Hub_Connector(Export_to_mass_balance): #general because it will call the cor
         return mass_balance_CO(vars) # tuple containing [x_ret, y_perm, Qr, Qp] and the data frame with the module profile
 
     elif Membrane["Solving_Method"] == 'CC':
-        from CC import mass_balance_CC
+        from CC_stable_test import mass_balance_CC
         return mass_balance_CC(vars)
-
+    elif Membrane["Solving_Method"] == 'CO_Molten':
+        from CO_Molten import mass_balance_CO_Molten
+        return mass_balance_CO_Molten(vars)
     else:
         raise ValueError("Solving_Method must be one of 'CO' or 'CC'")
 
