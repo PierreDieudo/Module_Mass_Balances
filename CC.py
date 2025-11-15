@@ -34,11 +34,11 @@ def mass_balance_CC(vars):
 
     #Determining minimum number of elements N required - (Coker and Freeman, 1998)
     J = len(Membrane["Feed_Composition"])
-    min_elements = [3]  # minimum of 3 elements
+    min_elements = [25]  # minimum of 3 elements
     for i in range(J):
-        N_i = (Membrane["Feed_Flow"] * (1 - Membrane["Feed_Composition"][i] + 0.005) * Membrane["Permeance"][i] * Membrane["Pressure_Feed"] * Membrane["Feed_Composition"][i]) / (Membrane["Feed_Flow"] * 0.005)
+        N_i = (Membrane["Area"] * (1 - Membrane["Feed_Composition"][i] + 0.005) * Membrane["Permeance"][i] * Membrane["Pressure_Feed"] * Membrane["Feed_Composition"][i]) / (Membrane["Feed_Flow"] * 0.005)
         min_elements.append(N_i)
-    n_elements = min(round(max(min_elements)), 1000)
+    n_elements = min(round(max(min_elements)), 1000)    
 
     DA = Membrane["Area"] / n_elements # Area of each element
 
@@ -170,9 +170,9 @@ def mass_balance_CC(vars):
                 guess,  # initial guess
                 args=(inputs, user_vars),  # arguments for the function
                 method='lm',
-                xtol = 1e-8,
-                ftol = 1e-8,
-                gtol = 1e-8
+                xtol = 1e-6,
+                ftol = 1e-6,
+                gtol = 1e-6
             )
 
             element_output = sol_element.x
@@ -283,10 +283,9 @@ def mass_balance_CC(vars):
         approx_mass_balance,
         approx_guess,
         args=(inputs, user_vars),
-        method='dogbox',
         bounds=(0,1),
-        xtol=1e-8,
-        ftol=1e-8   
+        xtol=1e-6,
+        ftol=1e-6   
         )
 
     #print (f'aprroximate solution used for initial guess: {approx_sol.x}') #guess for the retentate composition and flowrate at element 1
@@ -318,10 +317,9 @@ def mass_balance_CC(vars):
         module_mass_balance_error,
         shooting_guess,
         args=(user_vars,),
-        method='trf',
+        method='lm',
         xtol=1e-8,
         ftol=1e-8,
-        gtol=1e-8
     )
 
     shooting_error, Solved_membrane_profile = module_mass_balance(overall_sol.x , user_vars) #Running the membrane mass balance with the solution of the shooting method
@@ -351,6 +349,13 @@ def mass_balance_CC(vars):
 
     ''' Solved_membrane_profile is a DataFrame (matrix) with N rows and 2J+3 columns, listing x, y, cut_r, cut_p, and permeate pressure for each element'''
     
+    Solved_membrane_profile = (
+        Solved_membrane_profile #replaces element by normalised length with z=0 at the feed and z=1 at the retentate
+        .assign(norm_z=lambda df: (df["Element"].max()-df["Element"]) / (df["Element"].max()-df["Element"].min()))
+        .drop(columns="Element")
+        .pipe(lambda df: df[["norm_z"] + [c for c in df.columns if c != "norm_z"]])
+    )
+
     x_ret = Solved_membrane_profile.iloc[0, 1:J+1].values
     y_perm = Solved_membrane_profile.iloc[-1, J+1:2*J+1].values
     cut_r = Solved_membrane_profile.iloc[0, -4]

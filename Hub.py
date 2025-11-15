@@ -21,6 +21,7 @@ def Hub_Connector(Export_to_mass_balance): #general because it will call the cor
     Membrane["Permeance"] = [p * 3.348 * 1e-10 for p in Membrane["Permeance"]]  # convert from GPU to mol/m2.s.Pa
     Membrane["Pressure_Feed"] *= 1e5  #convert to Pa
     Membrane["Pressure_Permeate"] *= 1e5  
+    Membrane["Total_Flow"]=Membrane["Feed_Flow"]+Membrane["Sweep_Flow"]
 
     #number of components
     J = len(Membrane["Feed_Composition"])
@@ -65,11 +66,7 @@ def Hub_Connector(Export_to_mass_balance): #general because it will call the cor
         print("Optimisation failed to find a suitable module length")
         Fibre_Dimensions['Length'] = 0.1 #m - module length
 
-    #for coker 98 comparison:
-    Fibre_Dimensions['Length'] = 0.8 #m - module length
-    
-
-    fibre_area = math.pi * Fibre_Dimensions['Length'] * 1/4 * Fibre_Dimensions["D_out"]**2 #m2
+    fibre_area = math.pi * Fibre_Dimensions['Length'] * Fibre_Dimensions["D_out"] #m2
     Fibre_Dimensions["Number_Fibre"] =  Membrane["Area"] / fibre_area #number of fibres in the module
 
     #Solving the mass balance (for now humid conditions are not considered)
@@ -80,12 +77,18 @@ def Hub_Connector(Export_to_mass_balance): #general because it will call the cor
         return mass_balance_CO(vars) # tuple containing [x_ret, y_perm, Qr, Qp] and the data frame with the module profile
 
     elif Membrane["Solving_Method"] == 'CC':
-        from CC_stable_test import mass_balance_CC
+        from CC import mass_balance_CC
         return mass_balance_CC(vars)
     elif Membrane["Solving_Method"] == 'CO_Molten':
         from CO_Molten import mass_balance_CO_Molten
         return mass_balance_CO_Molten(vars)
+    elif Membrane["Solving_Method"] == 'CO_ODE':
+        from CO_ODE import mass_balance_CO_ODE
+        return mass_balance_CO_ODE(vars)
+    elif Membrane["Solving_Method"] == 'CC_ODE':
+        from CC_ODE import mass_balance_CC_ODE
+        return mass_balance_CC_ODE(vars)
     else:
-        raise ValueError("Solving_Method must be one of 'CO' or 'CC'")
+        raise ValueError("Solving_Method not recognised")
 
 

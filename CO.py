@@ -32,9 +32,10 @@ def mass_balance_CO(vars):
     J = len(Membrane["Feed_Composition"])
     min_elements = [3]  # minimum of 3 elements
     for i in range(J):  # (Coker and Freeman, 1998)
-        N_i = (Membrane["Feed_Flow"] * (1 - Membrane["Feed_Composition"][i] + 0.005) * Membrane["Permeance"][i] * Membrane["Pressure_Feed"] * Membrane["Feed_Composition"][i]) / (Membrane["Feed_Flow"] * 0.005)
+        N_i = (Membrane["Area"] * (1 - Membrane["Feed_Composition"][i] + 0.005) * Membrane["Permeance"][i] * Membrane["Pressure_Feed"] * Membrane["Feed_Composition"][i]) / (Membrane["Feed_Flow"] * 0.005)
         min_elements.append(N_i)
     n_elements = min(round(max(min_elements)), 1000)
+     
 
     DA = Membrane["Area"] / n_elements # Area of each element
 
@@ -152,10 +153,10 @@ def mass_balance_CO(vars):
             equations,  # function to solve
             guess,  # initial guess
             args=(inputs, user_vars),  # arguments for the function
-            method='lm',
+            method='dogbox',
             xtol = 1e-8,
             ftol = 1e-8,
-            gtol = 1e-8
+            gtol = 1e-8,
         )
         
         if not sol_element.success:raise ValueError(f"Mass balance solver failed at element {k}: {sol_element.message}")  
@@ -188,6 +189,14 @@ def mass_balance_CO(vars):
         #print(f'mass balance closure error: {sol_element.cost:.3e}')
         if sol_element.cost > 1e-5: print(f'with residuals {sol_element.fun}')
     
+    #print(Solved_membrane_profile)
+
+    Solved_membrane_profile = (
+        Solved_membrane_profile #replaces element by normalised length with z=0 at the feed and z=1 at the retentate
+        .assign(norm_z=lambda df: (df["Element"].max()-df["Element"]) / (df["Element"].max()-df["Element"].min()))
+        .drop(columns="Element")
+        .pipe(lambda df: df[["norm_z"] + [c for c in df.columns if c != "norm_z"]])
+    )
     x_ret = Solved_membrane_profile.iloc[-1, 1:J+1].values
     y_perm = Solved_membrane_profile.iloc[-1, J+1:2*J+1].values
     cut_r = Solved_membrane_profile.iloc[-1, -4]
@@ -197,5 +206,7 @@ def mass_balance_CO(vars):
     CO_results = x_ret, y_perm, Qr, Qp
     
     profile = Solved_membrane_profile.copy()
+    
+
 
     return CO_results, profile

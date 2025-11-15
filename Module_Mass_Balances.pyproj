@@ -13,6 +13,7 @@
     <RootNamespace>Module_Mass_Balances</RootNamespace>
     <InterpreterId>Global|PythonCore|3.12</InterpreterId>
     <SuppressPackageInstallationPrompt>True</SuppressPackageInstallationPrompt>
+    <SuppressConfigureTestFrameworkPrompt>true</SuppressConfigureTestFrameworkPrompt>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
@@ -23,6 +24,8 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Co-current Model.py" />
+    <Compile Include="Counter-Current Model.py" />
     <Compile Include="MAIN.py" />
     <Compile Include="CO.py" />
     <Compile Include="CC.py" />
@@ -30,6 +33,9 @@
     <Compile Include="MAIN_dQ.py" />
     <Compile Include="CC_stable_test.py" />
     <Compile Include="CO_Molten.py" />
+    <Compile Include="CO_ODE.py" />
+    <Compile Include="CO_var_mesh.py" />
+    <Compile Include="CC_ODE.py" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Requirements.txt" />

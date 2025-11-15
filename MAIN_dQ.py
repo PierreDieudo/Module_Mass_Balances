@@ -19,29 +19,28 @@ from Hub import Hub_Connector
 #--------- User input parameters ---------#
 #-----------------------------------------#
 
-print(f"For literature comparison, fixing the module length at 0.8 m")
 directory = 'C:\\Users\\s1854031\\Desktop\\' #input file path here.
 
 Membrane = {
     "Solving_Method": 'CC',                     # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
-    "Temperature": 40+273.15,                   # Kelvin
-    "Feed_Composition": [0.784,0.216,0,0], # molar fraction
+    "Temperature": 50+273.15,                   # Kelvin
+    "Feed_Composition": [0.2,0.8], # molar fraction
     "Feed_Flow": 1,                           # mol/s (PS: 1 mol/s = 3.6 kmol/h)
-    "Pressure_Feed": 10,                         # bar
-    "Pressure_Permeate": 1,                   # bar
-    "Area": 226,                                # m2
-    "Permeance": [3.57,20,60,1000],        # GPU
+    "Pressure_Feed": 59.7,                         # bar
+    "Pressure_Permeate": 1.7,                   # bar
+    "Area": 377,                                # m2
+    "Permeance": [22.7,0.7],        # GPU
     "Sweep_Option": False,                      # True or False - use a sweep or not
     "Sweep_Source": 'Recycling',                # 'User' or 'Recycling' - where the sweep comes from
     "Recycling_Ratio": 0.1,                     # Fraction of a stream (likely retentate) being sent back as sweep 
-    "Pressure_Drop": True,
-    "Export_Profile": False,                    # True or False - export the profile to a CSV file        
+    "Pressure_Drop": False,
+    "Export_Profile": True,                    # True or False - export the profile to a CSV file        
     "Plot_Profiles": False,                      # True or False - plot the profile of the membrane"
     }
  
 Component_properties = {
-    "Viscosity_param": ([0.0466,3.8874],[0.05575,3.89700], [0.0479,0.6112],[0.0333,-0.23498]), # Viscosity parameters for each component: slope and intercept for the viscosity correlation wiht temperature (in K) - from NIST
-    "Molar_mass": [14.0067, 31.999, 44.009, 18.01528], # Molar mass of each component in kg/kmol"        
+    "Viscosity_param": ([0.0479,0.6112],[0.0466,3.8874]),#,[0.0558,3.8970], [0.03333, -0.23498]),  # Viscosity parameters for each component: slope and intercept for the viscosity correlation wiht temperature (in K) - from NIST
+    "Molar_mass": [44.009, 28.0134],#, 31.999,18.01528],                                           # Molar mass of each component in g/mol
     }
 
 Fibre_Dimensions = {
@@ -50,8 +49,8 @@ Fibre_Dimensions = {
     }
 
 User_Sweep = { # Only if Sweep_Option is True and Sweep source is User
-    "Sweep_Flow": 3.5,                            # mol/s 
-    "Sweep_Composition": [0, 1,],          # molar fraction
+    "Sweep_Flow": 0,                            # mol/s 
+    "Sweep_Composition": [0, 0],          # molar fraction
     }
 
 Export_to_mass_balance = Membrane, Component_properties, Fibre_Dimensions
@@ -119,6 +118,9 @@ def Run_Module():
     
     print(f'Simulation finished with Recovery: {Recovery:.2f} % and Purity: {Purity:.2f} %')
 
+    Membrane["Recovery"] = Recovery
+    Membrane["Purity"] = Purity
+
     #print(profile)
 
     return profile
@@ -171,9 +173,9 @@ def plot_composition_profiles(profile):
 
 
 # Setup range of parameters to iterate over
-Q_feed = np.linspace(0.25, 10, 100)  # mol/s
-J = 4  # Number of components
-columns = ['Feed_Flow'] + [f'x{i+1}' for i in range(J)] + [f'y{i+1}' for i in range(J)] + ['Qr', 'Qp']
+Q_feed = np.linspace(5, 23, 50)  # mol/s
+J = len(Membrane["Permeance"])  # Number of components
+columns = ['Feed_Flow'] + [f'x{i+1}' for i in range(J)] + [f'y{i+1}' for i in range(J)] + ['Qr', 'Qp','Recovery','Purity']
 param_screening_df = pd.DataFrame(columns=columns)  # Start with an empty DataFrame
 
 def param_screening(Q):
@@ -192,6 +194,8 @@ for idx, Q in enumerate(Q_feed):
            *[Membrane["Permeate_Composition"][i] for i in range(J)],
            Membrane["Retentate_Flow"],
            Membrane["Permeate_Flow"],
+           Membrane["Recovery"],
+           Membrane["Purity"]
        ]
 
     #Resets the parameters to go through the general mass balance file formatting again - will think of a smarter way to do this later.
@@ -213,5 +217,6 @@ if Membrane["Export_Profile"]: # Export the profile to a CSV file in the same di
 if Membrane["Plot_Profiles"]:
     import matplotlib.pyplot as plt
     plot_composition_profiles(profile)
+
 
 print("Done - probably")

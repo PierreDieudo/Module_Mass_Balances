@@ -33,25 +33,25 @@ from Hub import Hub_Connector
 directory = 'C:\\Users\\s1854031\\Desktop\\' #input file path here.
 
 Membrane = {
-    "Solving_Method": 'CO_Molten',                     # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
-    "Temperature": 600+273.15,                   # Kelvin
-    "Feed_Composition": [0.2,0.6,0.1,0.1], # molar fraction
-    "Feed_Flow": 10,                           # mol/s (PS: 1 mol/s = 3.6 kmol/h)
-    "Pressure_Feed": 2,                         # bar
-    "Pressure_Permeate": 1,                   # bar
-    "Area": 2000,                                # m2
-    "Permeance": [1000,20,60,10],        # GPU
-    "Sweep_Option": True,                  # True or False - use a sweep or not
+    "Solving_Method": 'CO_ODE',                     # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
+    "Temperature": 35+273.15,                   # Kelvin
+    "Feed_Composition": [0.2,0.6,0.15,0.05], # molar fraction
+    "Feed_Flow": 1,                           # mol/s (PS: 1 mol/s = 3.6 kmol/h)
+    "Pressure_Feed": 30,                         # bar
+    "Pressure_Permeate": 1.013,                   # bar
+    "Area": 25,                                # m2
+    "Permeance": [40.024,1.111,0.305,0.06],        # GPU
+    "Sweep_Option": False,                  # True or False - use a sweep or not
     "Sweep_Source": 'User',                # 'User' or 'Recycling' - where the sweep comes from
     "Recycling_Ratio": 0.1,                # Fraction of a stream (likely retentate) being sent back as sweep 
-    "Pressure_Drop": True,
-    "Export_Profile": False,               # True or False - export the profile to a CSV file        
+    "Pressure_Drop": False,
+    "Export_Profile": True,               # True or False - export the profile to a CSV file        
     "Plot_Profiles": True,                 # True or False - plot the profile of the membrane"
     }
- 
+
 Component_properties = {
-    "Viscosity_param": ([0.0466,3.8874],[0.05575,3.89700], [0.0479,0.6112],[0.0333,-0.23498]), # Viscosity parameters for each component: slope and intercept for the viscosity correlation wiht temperature (in K) - from NIST
-    "Molar_mass": [14.0067, 31.999, 44.009, 18.01528], # Molar mass of each component in kg/kmol"        
+    "Viscosity_param": ([0.0479,0.6112],[0.0466,3.8874],[0.0558,3.8970], [0.03333, -0.23498]),  # Viscosity parameters for each component: slope and intercept for the viscosity correlation wiht temperature (in K) - from NIST
+    "Molar_mass": [44.009, 28.0134, 31.999,18.01528],                                           # Molar mass of each component in g/mol
     }
 
 Fibre_Dimensions = {
@@ -74,6 +74,7 @@ def Run_Module():
     
     print("Running Simulation...")
 
+    global J
     J = len(Membrane["Permeance"]) #number of components
 
     if not Membrane["Sweep_Option"]: # sweep deactivated
@@ -133,57 +134,76 @@ def Run_Module():
 
     Recovery = Membrane["Permeate_Composition"][0] * Membrane["Permeate_Flow"] / (Membrane["Feed_Flow"] * Membrane["Feed_Composition"][0]) * 100
     Purity = Membrane["Permeate_Composition"][0] * 100
-    
-    print(f'Simulation finished with Recovery: {Recovery:.2f} % and Purity: {Purity:.2f} %')
+    Stage_cut = Membrane["Permeate_Flow"] / (Membrane["Feed_Flow"]+Membrane["Sweep_Flow"]) * 100
+    print(f'Simulation finished with Recovery: {Recovery:.2f}%, Purity: {Purity:.2f}%, and a stage cut of {Stage_cut:.2f}%')
 
     print(profile)
 
     return profile
 
 def plot_composition_profiles(profile):  
-   num_components = len(Membrane["Permeance"])  
-   Norm_length = (max(profile['Element']) - profile['Element']) / (max(profile['Element']) - 1)  
 
-   fig, axes = plt.subplots(1, 2, figsize=(16, 5))  
+    df = profile.copy()
+    global J
+    z = df["norm_z"]
 
-   # Retentate composition plot  
-   for j in range(num_components):  
-       col = f'x{j+1}'  
-       if col in profile.columns:  
-           axes[0].plot(Norm_length, profile[col] * 100, label=f'Component {j+1}')  
-   axes[0].set_xlabel('Normalised Length')  
-   axes[0].set_ylabel('Retentate Composition (%)')  
-   axes[0].set_title('Retentate Composition Profile')  
-   axes[0].legend()  
-   axes[0].grid(True)  
+    fig1, axes1 = plt.subplots(1, 2, figsize=(16, 5))  
 
-   # Permeate composition plot  
-   if not Membrane["Sweep_Option"]:   # Filter out the sweep entry based on configuration if no sweep (to avoid composition jump from zero)
-       if Membrane["Solving_Method"] == 'CC':  
-           # Ignore element 1  
-           permeate_profile = profile[profile['Element'] != 1]  
-           norm_length_perm = (max(profile['Element']) - permeate_profile['Element']) / (max(profile['Element']) - 2)  
-       elif Membrane["Solving_Method"] == 'CO':  
-           # Ignore last element  
-           N = max(profile['Element'])  
-           permeate_profile = profile[profile['Element'] != N]  
-           norm_length_perm = (N - permeate_profile['Element']) / (N - 2)  
-   else:  
-       permeate_profile = profile  
-       norm_length_perm = Norm_length  
+    # Retentate composition plot  
+    for j in range(J):  
+        col = f'x{j+1}'  
+        if col in profile.columns:  
+            axes1[0].plot(z, profile[col] * 100, label=f'Component {j+1}')  
+    axes1[0].set_xlabel('Normalised Length')  
+    axes1[0].set_ylabel('Retentate Composition (%)')  
+    axes1[0].set_title('Retentate Composition Profile')  
+    axes1[0].legend()  
+    axes1[0].grid(True)  
 
-   for j in range(num_components):  
-       col = f'y{j+1}'  
-       if col in permeate_profile.columns:  
-           axes[1].plot(norm_length_perm, permeate_profile[col] * 100, label=f'Component {j+1}')  
-   axes[1].set_xlabel('Normalised Length')  
-   axes[1].set_ylabel('Permeate Composition (%)')  
-   axes[1].set_title('Permeate Composition Profile')  
-   axes[1].legend()  
-   axes[1].grid(True)  
+    # Permeate composition plot  
+    for j in range(J):  
+        col = f'y{j+1}'  
+        if col in profile.columns:  
+            axes1[1].plot(z, profile[col] * 100, label=f'Component {j+1}')  
+    axes1[1].set_xlabel('Normalised Length')  
+    axes1[1].set_ylabel('Permeate Composition (%)')  
+    axes1[1].set_title('Permeate Composition Profile')  
+    axes1[1].legend()  
+    axes1[1].grid(True)  
 
-   plt.tight_layout()  
-   plt.show()
+    plt.tight_layout()  
+    plt.show(block=False)
+
+    fig2, axes2 = plt.subplots(1, 2, figsize=(16, 5))  
+
+    # Retentate component flows plot
+    for j in range(J):  
+        col = f'x{j+1}'  
+        if col in profile.columns:  
+            # Multiply component fraction by normalised retentate flow
+            axes2[0].plot(z, profile[col] * profile['cut_r/Qr'], label=f'Component {j+1}')  
+
+    axes2[0].set_xlabel('Normalised Length')  
+    axes2[0].set_ylabel('Retentate Normalised Component Flow (-)')  
+    axes2[0].set_title('Retentate Flow Profile')  
+    axes2[0].legend()  
+    axes2[0].grid(True)  
+
+    # Permeate component flows plot
+    for j in range(J):  
+        col = f'y{j+1}'  
+        if col in profile.columns:  
+            # Multiply component fraction by normalised permeate flow
+            axes2[1].plot(z, profile[col] * profile['cut_p/Qp'], label=f'Component {j+1}')  
+
+    axes2[1].set_xlabel('Normalised Length')  
+    axes2[1].set_ylabel('Permeate Normalised Component Flow (-)')  
+    axes2[1].set_title('Permeate Flow Profile')  
+    axes2[1].legend()  
+    axes2[1].grid(True)  
+
+    plt.tight_layout()  
+    plt.show()
 
 
 profile = Run_Module()
