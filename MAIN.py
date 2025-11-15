@@ -33,7 +33,7 @@ from Hub import Hub_Connector
 directory = 'C:\\Users\\s1854031\\Desktop\\' #input file path here.
 
 Membrane = {
-    "Solving_Method": 'CO_ODE',                     # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
+    "Solving_Method": 'CC',                     # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
     "Temperature": 35+273.15,                   # Kelvin
     "Feed_Composition": [0.2,0.6,0.15,0.05], # molar fraction
     "Feed_Flow": 1,                           # mol/s (PS: 1 mol/s = 3.6 kmol/h)

@@ -317,7 +317,8 @@ def mass_balance_CC(vars):
         module_mass_balance_error,
         shooting_guess,
         args=(user_vars,),
-        method='lm',
+        method='dogbox',
+        bounds=(0,1),
         xtol=1e-8,
         ftol=1e-8,
     )
