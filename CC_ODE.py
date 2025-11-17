@@ -14,7 +14,15 @@ def mass_balance_CC_ODE(vars):
     Membrane["Total_Flow"] = Membrane["Feed_Flow"] + Membrane["Sweep_Flow"]
     Fibre_Dimensions["Number_Fibre"] = Membrane["Area"] / (Fibre_Dimensions["Length"] * math.pi * Fibre_Dimensions["D_out"])  # number of fibres in the module
     epsilon = 1e-8
-
+    
+    #Number of elements N
+    J = len(Membrane["Feed_Composition"])
+    min_elements = [3]  # minimum of 3 elements
+    for i in range(J):  # (Coker and Freeman, 1998)
+        N_i = (Membrane["Area"] * (1 - Membrane["Feed_Composition"][i] + 0.005) * Membrane["Permeance"][i] * Membrane["Pressure_Feed"] * Membrane["Feed_Composition"][i]) / (Membrane["Feed_Flow"] * 0.005)
+        min_elements.append(N_i)
+    n_elements = min(round(max(min_elements)), 1000)
+     
     Membrane["Feed_Composition"] = np.array(Membrane["Feed_Composition"])
     Membrane["Sweep_Composition"] = np.array(Membrane["Sweep_Composition"])
 
@@ -135,7 +143,7 @@ def mass_balance_CC_ODE(vars):
         params = (Membrane, Component_properties, Fibre_Dimensions)
     
         t_span = [Fibre_Dimensions['Length'], 0]
-        t_eval = np.linspace(t_span[0], t_span[1], 250)
+        t_eval = np.linspace(t_span[0], t_span[1], max(250,n_elements))
 
         #solution = solve_ivp(membrane_odes, t_span, y0 = boundary, args=(params,), method='BDF', t_eval=t_eval)
         solution = solve_ivp(lambda z, var: membrane_odes(z, var, params), t_span, y0 = boundary, method='BDF', t_eval=t_eval)

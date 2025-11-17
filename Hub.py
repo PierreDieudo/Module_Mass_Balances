@@ -1,5 +1,6 @@
 import math
 from scipy.optimize import minimize_scalar
+import numpy as np
 
 ''' General Information:
 
@@ -60,7 +61,7 @@ def Hub_Connector(Export_to_mass_balance): #general because it will call the cor
 
     result = minimize_scalar(objective, bounds=(3e-1, 5), method='bounded')
     if result.success:
-        Fibre_Dimensions['Length'] = result.x
+        Fibre_Dimensions['Length'] = float(result.x)
         #print(f'Optimised module length: {Fibre_Dimensions['Length']:.4f} m')
     else:
         print("Optimisation failed to find a suitable module length")

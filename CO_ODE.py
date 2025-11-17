@@ -11,7 +11,15 @@ def mass_balance_CO_ODE(vars):
     Fibre_Dimensions["Number_Fibre"] = Membrane["Area"] / (Fibre_Dimensions["Length"] * math.pi * Fibre_Dimensions["D_out"])  # number of fibres in the module
 
     J = len(Membrane["Feed_Composition"])
-
+        
+    #Number of elements N
+    J = len(Membrane["Feed_Composition"])
+    min_elements = [3]  # minimum of 3 elements
+    for i in range(J):  # (Coker and Freeman, 1998)
+        N_i = (Membrane["Area"] * (1 - Membrane["Feed_Composition"][i] + 0.005) * Membrane["Permeance"][i] * Membrane["Pressure_Feed"] * Membrane["Feed_Composition"][i]) / (Membrane["Feed_Flow"] * 0.005)
+        min_elements.append(N_i)
+    n_elements = min(round(max(min_elements)), 1000)
+     
     Membrane["Feed_Composition"] = np.array(Membrane["Feed_Composition"])
     Membrane["Sweep_Composition"] = np.array(Membrane["Sweep_Composition"])
 
@@ -44,15 +52,15 @@ def mass_balance_CO_ODE(vars):
         return np.concatenate((dx_dz, dy_dz))
 
     # Initial conditions
-    U_x_0 = Membrane["Feed_Composition"] * Membrane["Feed_Flow"] / Membrane["Total_Flow"]
-    U_y_0 = Membrane["Sweep_Composition"] * Membrane["Sweep_Flow"] / Membrane["Total_Flow"]
+    U_x_N = Membrane["Feed_Composition"] * Membrane["Feed_Flow"] / Membrane["Total_Flow"]
+    U_y_N = Membrane["Sweep_Composition"] * Membrane["Sweep_Flow"] / Membrane["Total_Flow"]
 
-    boundary = np.concatenate((U_x_0, U_y_0))
+    boundary = np.concatenate((U_x_N, U_y_N))
 
     params = (Membrane, Component_properties, Fibre_Dimensions)
 
     t_span = [0, Fibre_Dimensions['Length']]
-    t_eval = np.linspace(t_span[0], t_span[1], 250)
+    t_eval = np.linspace(t_span[0], t_span[1], max(250,n_elements))
 
     #solution = solve_ivp(membrane_odes, t_span, y0 = boundary, args=(params,), method='BDF', t_eval=t_eval)
     solution = solve_ivp(lambda z, var: membrane_odes(z, var, params), t_span, y0 = boundary, method='BDF', t_eval=t_eval)
@@ -80,9 +88,9 @@ def mass_balance_CO_ODE(vars):
     # Create DataFrame
     profile = pd.DataFrame(data)
 
-    x_ret = profile.iloc[0, 1:J+1].values
+    x_ret = profile.iloc[-1, 1:J+1].values
     y_perm = profile.iloc[-1, J+1:2*J+1].values
-    cut_r = profile.iloc[0, 2*J+1]
+    cut_r = profile.iloc[-1, 2*J+1]
     cut_p = profile.iloc[-1, 2*J+2]
     Qr = cut_r * Membrane["Total_Flow"]
     Qp = cut_p * Membrane["Total_Flow"]

@@ -33,25 +33,25 @@ from Hub import Hub_Connector
 directory = 'C:\\Users\\s1854031\\Desktop\\' #input file path here.
 
 Membrane = {
-    "Solving_Method": 'CC',                     # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
-    "Temperature": 35+273.15,                   # Kelvin
-    "Feed_Composition": [0.2,0.6,0.15,0.05], # molar fraction
-    "Feed_Flow": 1,                           # mol/s (PS: 1 mol/s = 3.6 kmol/h)
-    "Pressure_Feed": 30,                         # bar
-    "Pressure_Permeate": 1.013,                   # bar
-    "Area": 25,                                # m2
-    "Permeance": [40.024,1.111,0.305,0.06],        # GPU
-    "Sweep_Option": False,                  # True or False - use a sweep or not
-    "Sweep_Source": 'User',                # 'User' or 'Recycling' - where the sweep comes from
-    "Recycling_Ratio": 0.1,                # Fraction of a stream (likely retentate) being sent back as sweep 
+    "Solving_Method": 'CC_ODE',                     # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
+    "Temperature": 50+273.15,                   # Kelvin
+    "Feed_Composition": [0.4,0.6], # molar fraction
+    "Feed_Flow": 3.6,                           # mol/s (PS: 1 mol/s = 3.6 kmol/h)
+    "Pressure_Feed": 59.7,                         # bar
+    "Pressure_Permeate": 1.7,                   # bar
+    "Area": 377,                                # m2
+    "Permeance": [22.7,0.7],        # GPU
+    "Sweep_Option": False,                      # True or False - use a sweep or not
+    "Sweep_Source": 'Recycling',                # 'User' or 'Recycling' - where the sweep comes from
+    "Recycling_Ratio": 0.1,                     # Fraction of a stream (likely retentate) being sent back as sweep 
     "Pressure_Drop": False,
-    "Export_Profile": True,               # True or False - export the profile to a CSV file        
-    "Plot_Profiles": True,                 # True or False - plot the profile of the membrane"
+    "Export_Profile": False,                    # True or False - export the profile to a CSV file        
+    "Plot_Profiles": True,                      # True or False - plot the profile of the membrane"
     }
 
 Component_properties = {
-    "Viscosity_param": ([0.0479,0.6112],[0.0466,3.8874],[0.0558,3.8970], [0.03333, -0.23498]),  # Viscosity parameters for each component: slope and intercept for the viscosity correlation wiht temperature (in K) - from NIST
-    "Molar_mass": [44.009, 28.0134, 31.999,18.01528],                                           # Molar mass of each component in g/mol
+    "Viscosity_param": ([0.0479,0.6112],[0.0466,3.8874]),#,[0.0558,3.8970], [0.03333, -0.23498]),  # Viscosity parameters for each component: slope and intercept for the viscosity correlation wiht temperature (in K) - from NIST
+    "Molar_mass": [44.009, 28.0134],#, 31.999,18.01528],                                           # Molar mass of each component in g/mol
     }
 
 Fibre_Dimensions = {
@@ -60,8 +60,8 @@ Fibre_Dimensions = {
     }
 
 User_Sweep = { # Only if Sweep_Option is True and Sweep source is User
-    "Sweep_Flow": 3.5,                            # mol/s 
-    "Sweep_Composition": [0, 1,0,0],          # molar fraction
+    "Sweep_Flow": 0,                            # mol/s 
+    "Sweep_Composition": [0, 0],#,0,0],          # molar fraction
     }
 
 #--------------------------------------#
@@ -125,19 +125,34 @@ def Run_Module():
             print("Warning: Sweep iteration did not converge within the maximum number of iterations.")
 
 
-    print(f"Overall mass balance error: Feed + Sweep  - Retentate - Permeate = {abs(Membrane["Feed_Flow"] + Membrane["Sweep_Flow"] - Membrane["Retentate_Flow"] - Membrane["Permeate_Flow"]):.3e}")
-        
-    if np.any(profile<-1e-5):
-        print(profile)
-        raise ValueError("Negative values in the membrane profile") #check for negative values in the profile
-        
+    errors = []
+    for i in range(J):    
+        # Calculate comp molar flows
+        Feed_Sweep_Mol = Membrane["Feed_Flow"] * Membrane["Feed_Composition"][i] + Membrane["Sweep_Flow"] * Membrane["Sweep_Composition"][i]
+        Retentate_Mol = Membrane["Retentate_Flow"] * Membrane["Retentate_Composition"][i]
+        Permeate_Mol = Membrane["Permeate_Flow"] * Membrane["Permeate_Composition"][i]
+    
+        # Calculate and store the error
+        error = abs((Feed_Sweep_Mol - Retentate_Mol - Permeate_Mol)/Feed_Sweep_Mol)
+        errors.append(error)
+
+    # Calculate the cumulated error
+    cumulated_error = sum(errors)
+    print(f"Cumulated Component Mass Balance Error: {cumulated_error:.2e}")    
+
+    if np.any(profile<-1e-5) or cumulated_error>1e-5:
+        print(f'Cumulated Component Mass Balance Error: {cumulated_error:.2e} with array {[f"{er:.2e}" for er in errors]}')
+        profile_formatted = profile.map(lambda x: f'{x:.3f}' if pd.notnull(x) else x)        
+        print(profile_formatted)
+        #raise ValueError("Mass Balance Error: Check Profile") #check for negative values in the profile
+                
 
     Recovery = Membrane["Permeate_Composition"][0] * Membrane["Permeate_Flow"] / (Membrane["Feed_Flow"] * Membrane["Feed_Composition"][0]) * 100
     Purity = Membrane["Permeate_Composition"][0] * 100
     Stage_cut = Membrane["Permeate_Flow"] / (Membrane["Feed_Flow"]+Membrane["Sweep_Flow"]) * 100
     print(f'Simulation finished with Recovery: {Recovery:.2f}%, Purity: {Purity:.2f}%, and a stage cut of {Stage_cut:.2f}%')
 
-    print(profile)
+    #print(profile)
 
     return profile
 

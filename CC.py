@@ -34,7 +34,7 @@ def mass_balance_CC(vars):
 
     #Determining minimum number of elements N required - (Coker and Freeman, 1998)
     J = len(Membrane["Feed_Composition"])
-    min_elements = [25]  # minimum of 3 elements
+    min_elements = [3]  # minimum of 3 elements
     for i in range(J):
         N_i = (Membrane["Area"] * (1 - Membrane["Feed_Composition"][i] + 0.005) * Membrane["Permeance"][i] * Membrane["Pressure_Feed"] * Membrane["Feed_Composition"][i]) / (Membrane["Feed_Flow"] * 0.005)
         min_elements.append(N_i)

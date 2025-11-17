@@ -22,9 +22,9 @@ from Hub import Hub_Connector
 directory = 'C:\\Users\\s1854031\\Desktop\\' #input file path here.
 
 Membrane = {
-    "Solving_Method": 'CC',                     # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
+    "Solving_Method": 'CO_ODE',                     # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
     "Temperature": 50+273.15,                   # Kelvin
-    "Feed_Composition": [0.2,0.8], # molar fraction
+    "Feed_Composition": [0.4,0.6], # molar fraction
     "Feed_Flow": 1,                           # mol/s (PS: 1 mol/s = 3.6 kmol/h)
     "Pressure_Feed": 59.7,                         # bar
     "Pressure_Permeate": 1.7,                   # bar
@@ -104,13 +104,27 @@ def Run_Module():
 
         else:
             print("Warning: Sweep iteration did not converge within the maximum number of iterations.")
+    
+    errors = []
+    for i in range(J):
+    
+        # Calculate comp molar flows
+        Feed_Sweep_Mol = Membrane["Feed_Flow"] * Membrane["Feed_Composition"][i] + Membrane["Sweep_Flow"] * Membrane["Sweep_Composition"][i]
+        Retentate_Mol = Membrane["Retentate_Flow"] * Membrane["Retentate_Composition"][i]
+        Permeate_Mol = Membrane["Permeate_Flow"] * Membrane["Permeate_Composition"][i]
+    
+        # Calculate and store the error
+        error = (Feed_Sweep_Mol - Retentate_Mol - Permeate_Mol)/Feed_Sweep_Mol
+        errors.append(error)
 
+    # Calculate the cumulated error
+    cumulated_error = sum(errors)
+    print(f"Cumulated Component Mass Balance Error: {cumulated_error:.2e}")    
 
-    print(f"Overall mass balance error: Feed + Sweep  - Retentate - Permeate = {abs(Membrane["Feed_Flow"] + Membrane["Sweep_Flow"] - Membrane["Retentate_Flow"] - Membrane["Permeate_Flow"]):.3e}")
-        
-    if np.any(profile<0):
+    if np.any(profile<-1e-5) or cumulated_error>1e-5:
+        print(f'Cumulated Component Mass Balance Error: {cumulated_error:.2e} with array {errors}')
         print(profile)
-        #raise ValueError("Negative values in the membrane profile") #check for negative values in the profile
+        raise ValueError("Mass Balance Error: Check Profile") #check for negative values in the profile
         
 
     Recovery = Membrane["Permeate_Composition"][0] * Membrane["Permeate_Flow"] / (Membrane["Feed_Flow"] * Membrane["Feed_Composition"][0]) * 100
@@ -173,7 +187,7 @@ def plot_composition_profiles(profile):
 
 
 # Setup range of parameters to iterate over
-Q_feed = np.linspace(5, 23, 50)  # mol/s
+Q_feed = np.linspace(4, 36, 50)  # mol/s
 J = len(Membrane["Permeance"])  # Number of components
 columns = ['Feed_Flow'] + [f'x{i+1}' for i in range(J)] + [f'y{i+1}' for i in range(J)] + ['Qr', 'Qp','Recovery','Purity']
 param_screening_df = pd.DataFrame(columns=columns)  # Start with an empty DataFrame
