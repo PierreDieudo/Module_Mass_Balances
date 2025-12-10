@@ -34,14 +34,14 @@ directory = 'C:\\Users\\s1854031\\Desktop\\' #input file path here.
 
 Membrane = {
     "Solving_Method": 'CC_ODE',                     # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
-    "Temperature": 50+273.15,                   # Kelvin
-    "Feed_Composition": [0.4,0.6], # molar fraction
-    "Feed_Flow": 3.6,                           # mol/s (PS: 1 mol/s = 3.6 kmol/h)
-    "Pressure_Feed": 59.7,                         # bar
-    "Pressure_Permeate": 1.7,                   # bar
-    "Area": 377,                                # m2
-    "Permeance": [22.7,0.7],        # GPU
-    "Sweep_Option": False,                      # True or False - use a sweep or not
+    "Temperature": 30+273.15,                   # Kelvin
+    "Feed_Composition": [0.1,0.8,0.05,0.05], # molar fraction
+    "Feed_Flow": 3.4e4,                           # mol/s (PS: 1 mol/s = 3.6 kmol/h)
+    "Pressure_Feed": 9,                         # bar
+    "Pressure_Permeate": 0.22,                   # bar
+    "Area": 50000,                                # m2
+    "Permeance": [1000,50,20,1000],        # GPU
+    "Sweep_Option": True,                      # True or False - use a sweep or not
     "Sweep_Source": 'Recycling',                # 'User' or 'Recycling' - where the sweep comes from
     "Recycling_Ratio": 0.1,                     # Fraction of a stream (likely retentate) being sent back as sweep 
     "Pressure_Drop": False,
@@ -50,8 +50,8 @@ Membrane = {
     }
 
 Component_properties = {
-    "Viscosity_param": ([0.0479,0.6112],[0.0466,3.8874]),#,[0.0558,3.8970], [0.03333, -0.23498]),  # Viscosity parameters for each component: slope and intercept for the viscosity correlation wiht temperature (in K) - from NIST
-    "Molar_mass": [44.009, 28.0134],#, 31.999,18.01528],                                           # Molar mass of each component in g/mol
+    "Viscosity_param": ([0.0479,0.6112],[0.0466,3.8874],[0.0558,3.8970], [0.03333, -0.23498]),  # Viscosity parameters for each component: slope and intercept for the viscosity correlation wiht temperature (in K) - from NIST
+    "Molar_mass": [44.009, 28.0134, 31.999,18.01528],                                           # Molar mass of each component in g/mol
     }
 
 Fibre_Dimensions = {
@@ -60,8 +60,8 @@ Fibre_Dimensions = {
     }
 
 User_Sweep = { # Only if Sweep_Option is True and Sweep source is User
-    "Sweep_Flow": 0,                            # mol/s 
-    "Sweep_Composition": [0, 0],#,0,0],          # molar fraction
+    "Sweep_Flow": 1e3,                            # mol/s 
+    "Sweep_Composition": [0, 0, 0, 1],          # molar fraction
     }
 
 #--------------------------------------#

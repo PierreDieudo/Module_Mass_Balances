@@ -17,7 +17,7 @@ def mass_balance_CC_ODE(vars):
     
     #Number of elements N
     J = len(Membrane["Feed_Composition"])
-    min_elements = [3]  # minimum of 3 elements
+    min_elements = [100]  # minimum of 100 elements
     for i in range(J):  # (Coker and Freeman, 1998)
         N_i = (Membrane["Area"] * (1 - Membrane["Feed_Composition"][i] + 0.005) * Membrane["Permeance"][i] * Membrane["Pressure_Feed"] * Membrane["Feed_Composition"][i]) / (Membrane["Feed_Flow"] * 0.005)
         min_elements.append(N_i)
@@ -97,7 +97,6 @@ def mass_balance_CC_ODE(vars):
             ftol=1e-6   
             )
 
-
         return approx_sol
 
 
@@ -109,18 +108,16 @@ def mass_balance_CC_ODE(vars):
             Membrane, Component_properties, Fibre_Dimensions = params
             J = len(Membrane["Feed_Composition"])
 
-
             # Unpack variables
             '''
             U_r_x = var[:J]  # Retentate composition flows
             U_p_y = var[J:2*J]  # Permeate composition flows
-        
             U_r = sum(U_r_x)
             U_p = sum(U_p_y)
-
             x = U_r_x / U_r
             y = U_p_y / U_p if U_p != 0 else np.zeros_like(U_p_y)
             '''
+
             epsilon = 1e-8
             # Define the ODEs for each component
             dx_dz = np.zeros(J)
@@ -129,38 +126,27 @@ def mass_balance_CC_ODE(vars):
             for i in range(J):
                 dx_dz[i] = 1/Membrane["Total_Flow"] * ( - Membrane["Permeance"][i] * (Fibre_Dimensions["D_out"] * math.pi * Fibre_Dimensions["Number_Fibre"]) * (Membrane["Pressure_Feed"] * var[i]/(sum(var[:J])+epsilon) - Membrane["Pressure_Permeate"] * var[J+i]/(sum(var[J:2*J])+epsilon)) ) # change in component flow in retentate is negative of permeation
                 dy_dz[i] = - dx_dz[i]
-        
 
             return np.concatenate((dx_dz, dy_dz))
 
 
         # Initial conditions
         U_x_0 = vars #input retentate guess for the shooting method 
-        U_y_0 = Membrane["Sweep_Composition"] * Membrane["Sweep_Flow"] / Membrane["Total_Flow"]
+        U_y_0 = -Membrane["Sweep_Composition"] * Membrane["Sweep_Flow"] / Membrane["Total_Flow"]
 
         boundary = np.concatenate((U_x_0, U_y_0))
-
         params = (Membrane, Component_properties, Fibre_Dimensions)
     
         t_span = [Fibre_Dimensions['Length'], 0]
         t_eval = np.linspace(t_span[0], t_span[1], max(250,n_elements))
 
-        #solution = solve_ivp(membrane_odes, t_span, y0 = boundary, args=(params,), method='BDF', t_eval=t_eval)
-        solution = solve_ivp(lambda z, var: membrane_odes(z, var, params), t_span, y0 = boundary, method='BDF', t_eval=t_eval)
-
-        '''
-        z_points = solution.t
-        U_x_profile = solution.y[:J, :]
-        U_y_profile = solution.y[J:2*J, :]
-
-        # Composition Profiles
-        x_profiles = U_x_profile / np.sum(U_x_profile, axis=0)
-        y_profiles = U_y_profile / (np.sum(U_y_profile, axis=0) + epsilon)
-    
-        # Final Results
-        final_Fx = solution.y[:J, -1]
-        final_Fy = solution.y[J:2*J, -1]
-        '''
+        solution = solve_ivp(
+            lambda z, var: membrane_odes(z, var, params),
+            t_span,
+            y0 = boundary,
+            method='BDF',
+            t_eval=t_eval,
+            )
 
         return solution
 
@@ -174,9 +160,10 @@ def mass_balance_CC_ODE(vars):
         J = len(Membrane["Feed_Composition"])
         
         approx_solution = approx_shooting_guess()
+        #print(f'approx solution for intial guess: {approx_solution.x}, cost: {approx_solution.cost:.3e}')
         approx_guess = approx_solution.x[0:J].tolist() + [approx_solution.x[-2]] #guess for the retentate composition and normalised flowrate at element 1
         approx_guess = [comp * approx_guess[-1] for comp in approx_guess[0:J]]
-
+        print(approx_guess)
 
         def module_shooting_error(vars):
 
@@ -210,13 +197,13 @@ def mass_balance_CC_ODE(vars):
         z_points = solution.t
         z_points_norm = z_points / np.max(z_points)    
         U_x_profile = solution.y[:J, :]
-        U_y_profile = -solution.y[J:2*J, :]
+        U_y_profile = solution.y[J:2*J, :]
 
         # Calculate the compositions and flows
         x_profiles = U_x_profile / np.sum(U_x_profile, axis=0)
         y_profiles = U_y_profile / (np.sum(U_y_profile, axis=0) + epsilon)
         Qr_profile = np.sum(U_x_profile, axis=0)
-        Qp_profile = np.sum(U_y_profile, axis=0)
+        Qp_profile = -np.sum(U_y_profile, axis=0)
 
         data = {
             "norm_z": z_points_norm,
