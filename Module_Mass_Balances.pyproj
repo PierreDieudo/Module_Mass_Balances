@@ -36,6 +36,7 @@
     <Compile Include="CO_ODE.py" />
     <Compile Include="CO_var_mesh.py" />
     <Compile Include="CC_ODE.py" />
+    <Compile Include="CC_ODE_dP.py" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Requirements.txt" />

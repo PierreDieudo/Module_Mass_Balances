@@ -251,14 +251,9 @@ def mass_balance_CC_ODE(vars):
         Qr_profile = np.sum(U_x_profile, axis=0)
         Qp_profile = -np.sum(U_y_profile, axis=0)
 
-      
-
         if Membrane["Pressure_Drop"]:
             print(f"Total pressure drop = {1e-5 * (solution.y[-1, -1]):.3f} bar")
             P_profile = solution.y[-1, :]
-
-
-        '''
             # Plot pressure profile
             plt.figure(figsize=(8,6))
             plt.plot(z_points_norm, P_profile)
@@ -266,7 +261,6 @@ def mass_balance_CC_ODE(vars):
             plt.ylabel('Pressure (Pa)')
             plt.title('Pressure Drop Profile Along the Membrane')
             plt.show()
-        '''
 
         data = {
             "norm_z": z_points_norm,

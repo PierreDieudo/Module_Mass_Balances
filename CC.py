@@ -86,7 +86,7 @@ def mass_balance_CC(vars):
         Q = Q/Fibre_Dimensions['Number_Fibre']                                                                          # Flowrate in fibre in mol/s
         dL = Fibre_Dimensions['Length']/n_elements                                          # Length of the discretised element in m
         R = 8.314                                                                           # J/(mol.K) - gas constant
-        dP = 8 * visc_mix / (math.pi * D_in**4) * Q * R * Membrane["Temperature"]/ P * dL   # Pressure drop in Pa
+        dP = 128 * visc_mix / (math.pi * D_in**4) * Q * R * Membrane["Temperature"]/ P * dL   # Pressure drop in Pa
         return dP
 
 
