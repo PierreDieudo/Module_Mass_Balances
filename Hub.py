@@ -59,7 +59,7 @@ def Hub_Connector(Export_to_mass_balance): #general because it will call the cor
         # Minimise the difference between max_delta and 0.4
         return 0.4 - max_delta
 
-    result = minimize_scalar(objective, bounds=(3e-1, 2), method='bounded')
+    result = minimize_scalar(objective, bounds=(1e-1, 2), method='bounded')
     if result.success:
         Fibre_Dimensions['Length'] = float(result.x)
         print(f'Optimised module length: {Fibre_Dimensions['Length']:.4f} m')

@@ -51,7 +51,7 @@ def mass_balance_CC_ODE(vars):
 
         nu=np.zeros(J)
         for i in range(J):
-            nu[i] = y[i] * visc [i] / sum(y[i] * phi[i][j] for j in range(J))
+            nu[i] = y[i] * visc [i] / sum(y[j] * phi[i][j] for j in range(J))
     
         visc_mix = sum(nu) # Viscosity of the mixture in Pa.s
         return visc_mix
