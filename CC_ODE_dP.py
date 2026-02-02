@@ -244,7 +244,7 @@ def mass_balance_CC_ODE(vars):
         z_points_norm = z_points / np.max(z_points)    
         U_x_profile = solution.y[:J, :]
         U_y_profile = solution.y[J:2*J, :]
-
+        print(solution.y)
         # Calculate the compositions and flows
         x_profiles = U_x_profile / np.sum(U_x_profile, axis=0)
         y_profiles = U_y_profile / (np.sum(U_y_profile, axis=0) + epsilon)

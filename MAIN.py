@@ -39,14 +39,14 @@ Membrane = {
     "Feed_Flow": 11.8,                           # mol/s (PS: 1 mol/s = 3.6 kmol/h)
     "Pressure_Feed": 5,                         # bar
     "Pressure_Permeate": 1,                   # bar
-    "Area": 1,                                # m2
+    "Area": 5,                                # m2
     "Permeance": [7700,140,210],              # GPU
     "Sweep_Option": False,                    # True or False - use a sweep or not
     "Sweep_Source": 'User',                   # 'User' or 'Recycling' - where the sweep comes from
     "Recycling_Ratio": 0,                     # Fraction of a stream (likely retentate) being sent back as sweep 
-    "Pressure_Drop": True, 
+    "Pressure_Drop": False, 
     "Export_Profile": False,                    # True or False - export the profile to a CSV file        
-    "Plot_Profiles": False,                      # True or False - plot the profile of the membrane"
+    "Plot_Profiles": True,                      # True or False - plot the profile of the membrane"
     }
 
 Component_properties = {

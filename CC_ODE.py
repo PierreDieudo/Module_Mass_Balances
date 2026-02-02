@@ -166,7 +166,7 @@ def mass_balance_CC_ODE(vars):
             if Membrane["Pressure_Drop"]:     
                 composition = var[:J] / sum(var[:J])
                 Q = sum(var[:J])
-                dP_dz = -pressure_drop(composition, Q, var[-1])
+                dP_dz = pressure_drop(composition, Q, var[-1])
             else: 
                 dP_dz = 0
             
@@ -174,7 +174,7 @@ def mass_balance_CC_ODE(vars):
 
         # Initial conditions
         U_x_L = vars[:J] #input retentate guess for the shooting method
-        P_y_L = vars[-1] if Membrane["Pressure_Drop"] else Membrane["Pressure_Permeate"]
+        P_y_L = Membrane["Pressure_Permeate"]/vars[-1] if Membrane["Pressure_Drop"] else Membrane["Pressure_Permeate"] #guess sweep pressure
         U_y_L = -Membrane["Sweep_Composition"] * Membrane["Sweep_Flow"] / Membrane["Total_Flow"]
 
         boundary = np.concatenate((U_x_L, U_y_L, [P_y_L]))
@@ -221,6 +221,13 @@ def mass_balance_CC_ODE(vars):
 
             shooting_error = error_Fy
 
+            if Membrane["Pressure_Drop"]:
+                guess_P_y_0 = guess_solution.y[-1,-1]
+                true_P_y_0 = Membrane["Pressure_Permeate"]/vars[-1]
+                error_P = abs(guess_P_y_0 - true_P_y_0)/true_P_y_0
+                shooting_error = shooting_error + [error_P]
+
+
             return shooting_error
 
         #least_squares function to solve the overall mass balance
@@ -250,15 +257,14 @@ def mass_balance_CC_ODE(vars):
         y_profiles = U_y_profile / (np.sum(U_y_profile, axis=0) + epsilon)
         Qr_profile = np.sum(U_x_profile, axis=0)
         Qp_profile = -np.sum(U_y_profile, axis=0)
-
       
 
         if Membrane["Pressure_Drop"]:
-            print(f"Total pressure drop = {1e-5 * (solution.y[-1, -1]):.3f} bar")
+           
             P_profile = solution.y[-1, :]
+        
+            print(f'Pressure drop across the module: {P_profile[0]-P_profile[-1]:.2f} Pa')
 
-
-        '''
             # Plot pressure profile
             plt.figure(figsize=(8,6))
             plt.plot(z_points_norm, P_profile)
@@ -266,7 +272,7 @@ def mass_balance_CC_ODE(vars):
             plt.ylabel('Pressure (Pa)')
             plt.title('Pressure Drop Profile Along the Membrane')
             plt.show()
-        '''
+        
 
         data = {
             "norm_z": z_points_norm,
