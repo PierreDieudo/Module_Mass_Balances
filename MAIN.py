@@ -33,7 +33,7 @@ from Hub import Hub_Connector
 directory = 'C:\\Users\\s1854031\\Desktop\\' #input file path here.
 
 Membrane = {
-    "Solving_Method": 'CC_ODE',                     # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
+    "Solving_Method": 'CC_ODE_stable',                     # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
     "Temperature": 30+273.15,                   # Kelvin
     "Feed_Composition": [0.25,0.045,0.705], # molar fraction
     "Feed_Flow": 11.8,                           # mol/s (PS: 1 mol/s = 3.6 kmol/h)
@@ -44,7 +44,7 @@ Membrane = {
     "Sweep_Option": False,                    # True or False - use a sweep or not
     "Sweep_Source": 'User',                   # 'User' or 'Recycling' - where the sweep comes from
     "Recycling_Ratio": 0,                     # Fraction of a stream (likely retentate) being sent back as sweep 
-    "Pressure_Drop": True, 
+    "Pressure_Drop": False, 
     "Export_Profile": False,                    # True or False - export the profile to a CSV file        
     "Plot_Profiles": True,                      # True or False - plot the profile of the membrane"
     }
@@ -197,7 +197,7 @@ def plot_composition_profiles(profile):
         col = f'x{j+1}'  
         if col in profile.columns:  
             # Multiply component fraction by normalised retentate flow
-            axes2[0].plot(z, profile[col] * profile['cut_r/Qr'], label=f'Component {j+1}')  
+            axes2[0].plot(z, profile[col] * profile['Qr'], label=f'Component {j+1}')  
 
     axes2[0].set_xlabel('Normalised Length')  
     axes2[0].set_ylabel('Retentate Normalised Component Flow (-)')  
@@ -210,7 +210,7 @@ def plot_composition_profiles(profile):
         col = f'y{j+1}'  
         if col in profile.columns:  
             # Multiply component fraction by normalised permeate flow
-            axes2[1].plot(z, profile[col] * profile['cut_p/Qp'], label=f'Component {j+1}')  
+            axes2[1].plot(z, profile[col] * profile['Qp'], label=f'Component {j+1}')  
 
     axes2[1].set_xlabel('Normalised Length')  
     axes2[1].set_ylabel('Permeate Normalised Component Flow (-)')  

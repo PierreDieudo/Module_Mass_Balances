@@ -309,8 +309,8 @@ def mass_balance_CC_ODE(vars):
             "norm_z": z_points_norm,
             **{f"x{i+1}": x_profiles[i, :] for i in range(J)},
             **{f"y{i+1}": y_profiles[i, :] for i in range(J)},
-            "cut_r/Qr": Qr_profile,
-            "cut_p/Qp": Qp_profile,
+            "Qr": Qr_profile,
+            "Qp": Qp_profile,
         }
 
         profile = pd.DataFrame(data)

@@ -131,26 +131,33 @@ def mass_balance_CC_ODE_BVP(vars):
     ###----------------------------------------------------------'''
 
     def membrane_odes(z, var):
-        
-        u_x    = var[:J]
-        u_y    = var[J:2*J]
-   
+        u_x = var[:J]
+        u_y = var[J:2*J]
+
         P_perm = Membrane["Pressure_Permeate"]
-        Pf   = Membrane["Pressure_Feed"]
-        A    = Fibre_Dimensions["D_out"] * math.pi * Fibre_Dimensions["Number_Fibre"]
-        Ttot = Membrane["Total_Flow"]
-
-        sum_ux = np.sum(u_x, axis=0)
-        sum_uy = np.sum(u_y, axis=0)   # negative
-
+        Pf     = Membrane["Pressure_Feed"]
+        A      = Fibre_Dimensions["D_out"] * math.pi * Fibre_Dimensions["Number_Fibre"]
+        Ttot   = Membrane["Total_Flow"]
+    
         permeance = np.array(Membrane["Permeance"])
 
-        x = u_x / (sum_ux + epsilon)[np.newaxis, :]
-        y = u_y / (sum_uy - epsilon)[np.newaxis, :]
-        du_x_dz = -(permeance * A / Ttot) * (Pf * x - P_perm * y)
+        sum_ux = np.sum(u_x, axis=0)
+        sum_uy = np.sum(u_y, axis=0)
+
+        # safe mole fractions
+        x = np.zeros_like(u_x)
+        y = np.zeros_like(u_y)
+    
+        safe_x = np.abs(sum_ux) > 1e-6
+        safe_y = np.abs(sum_uy) > 1e-6
+    
+        x[:, safe_x] = u_x[:, safe_x] / sum_ux[safe_x]
+        y[:, safe_y] = u_y[:, safe_y] / sum_uy[safe_y]
+
+        du_x_dz = -(permeance[:, None] * A / Ttot) * (Pf * x - P_perm * y)
         du_y_dz = -du_x_dz
 
-        return np.concatenate([du_x_dz, du_y_dz])
+        return np.concatenate([du_x_dz, du_y_dz], axis=0)
     
     def bc(ya, yb):
         feed_norm  =  Membrane["Feed_Composition"]  * Membrane["Feed_Flow"]  / Membrane["Total_Flow"]
@@ -158,36 +165,71 @@ def mass_balance_CC_ODE_BVP(vars):
         return np.concatenate([ya[:J] - feed_norm, yb[J:2*J] - sweep_norm])
 
     sol = approx_shooting_guess() #conducts a simplified mass balance to get an initial guess
-    x_0_approx = sol.x[:J]
-    y_N_approx = sol.x[J:2*J]
-    cut_r_0    = sol.x[-2]
-    cut_p_N    = sol.x[-1]
+    x_L_approx = sol.x[:J]
+    y_0_approx = sol.x[J:2*J]
+    cut_r_L    = sol.x[-2]
+    cut_p_0    = sol.x[-1]
+    U_x_z0_approx = x_L_approx * cut_r_L #approx 
+    U_y_zL_approx  = -y_0_approx * cut_p_0
 
-    U_x_z0_approx = x_0_approx * cut_r_0
-    U_y_zL_approx  = -y_N_approx * cut_p_N
+    U_x_feed_norm  =  Membrane["Feed_Composition"]  * Membrane["Feed_Flow"]  / Membrane["Total_Flow"]
+    U_y_sweep_norm = -Membrane["Sweep_Composition"] * Membrane["Sweep_Flow"] / Membrane["Total_Flow"]
 
-    z_mesh = np.linspace(0, Fibre_Dimensions["Length"])
+    x_init = np.linspace(0, Fibre_Dimensions["Length"], 10)
 
-    sol = solve_bvp(membrane_odes, bc, z_mesh, y_init, tol=1e-6)
+    U_x_init = np.zeros((J, 10))
+    U_y_init = np.zeros((J, 10))
+    for i in range(J):
+        U_x_init[i, :] = np.linspace(U_x_feed_norm[i], U_x_z0_approx[i], 10)
+        U_y_init[i, :] = np.linspace(U_y_zL_approx[i], U_y_sweep_norm[i], 10)
+    y_init = np.vstack([U_x_init, U_y_init])
 
+    bvp_sol = solve_bvp(membrane_odes, bc, x_init, y_init, tol=1e-6)
 
+    if not sol.success:
+        print(f"Solver did not converge: {sol.message}")
 
-    z_norm = z_mesh / Fibre_Dimensions["Length"]   # 0 at z=0, 1 at z=L
+    y_sol = bvp_sol.y                          # shape (2J, n_points) on adaptive mesh
+    z_adaptive = bvp_sol.x                     # adaptive mesh chosen by solver
 
+    U_x_profile = y_sol[:J, :]  * Membrane["Total_Flow"]
+    U_y_profile = y_sol[J:2*J, :] * Membrane["Total_Flow"]
+
+    if Membrane["Sweep_Flow"] == 0:
+        threshold = 1e-4
+    else:
+        threshold = 1e-8
+
+    x_profiles = np.zeros_like(U_x_profile)
+    y_profiles = np.zeros_like(U_y_profile)
+
+    sum_ux_prof = np.sum(U_x_profile, axis=0)
+    sum_uy_prof = np.sum(U_y_profile, axis=0)
+
+    safe_x = np.abs(sum_ux_prof) > threshold
+    safe_y = np.abs(sum_uy_prof) > threshold
+
+    x_profiles[:, safe_x] = U_x_profile[:, safe_x] / sum_ux_prof[safe_x]
+    y_profiles[:, safe_y] = U_y_profile[:, safe_y] / sum_uy_prof[safe_y]
+
+    Qr_profile =  np.sum(U_x_profile, axis=0)
+    Qp_profile = -np.sum(U_y_profile, axis=0)
+
+    z_norm = z_adaptive / Fibre_Dimensions["Length"]
     data = {
         "norm_z":   z_norm,
         **{f"x{i+1}": x_profiles[i, :] for i in range(J)},
         **{f"y{i+1}": y_profiles[i, :] for i in range(J)},
-        "cut_r/Qr": Qr_profile,
-        "cut_p/Qp": Qp_profile,
+        "Qr": Qr_profile,
+        "Qp": Qp_profile,
     }
-
+   
     profile = pd.DataFrame(data)
 
     x_ret  = profile.iloc[-1][[f"x{i+1}" for i in range(J)]].values
     y_perm = profile.iloc[0][[f"y{i+1}" for i in range(J)]].values
-    Qr     = profile.iloc[-1]["cut_r/Qr"]
-    Qp     = profile.iloc[0]["cut_p/Qp"]
+    Qr     = profile.iloc[-1]["Qr"]
+    Qp     = profile.iloc[0]["Qp"]
 
     '''
     if Membrane["Pressure_Drop"]:
