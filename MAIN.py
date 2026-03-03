@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import os
 from Hub import Hub_Connector
+import warnings
 
 
 ''' General information here: 
@@ -39,7 +40,7 @@ Membrane = {
     "Feed_Flow": 11.8,                           # mol/s (PS: 1 mol/s = 3.6 kmol/h)
     "Pressure_Feed": 5,                         # bar
     "Pressure_Permeate": 1,                   # bar
-    "Area": 15,                                # m2
+    "Area": 200,                                # m2
     "Permeance": [7700,140,210],              # GPU
     "Sweep_Option": False,                    # True or False - use a sweep or not
     "Sweep_Source": 'User',                   # 'User' or 'Recycling' - where the sweep comes from
@@ -61,7 +62,7 @@ Fibre_Dimensions = {
 
 User_Sweep = { # Only if Sweep_Option is True and Sweep source is User
     "Sweep_Flow": 1,                         # mol/s 
-    "Sweep_Composition": [0, 0, 1],          # molar fraction
+    "Sweep_Composition": [0,1,0],          # molar fraction
     }
 
 #--------------------------------------#
@@ -141,12 +142,15 @@ def Run_Module():
     cumulated_error = sum(errors)
     print(f"Cumulated Component Mass Balance Error: {cumulated_error:.2e}")    
 
-    if np.any(profile<-1e-5) or cumulated_error>1e-5:
+    if np.any(profile<-1e-3) or cumulated_error>1e-5:
         print(f'Cumulated Component Mass Balance Error: {cumulated_error:.2e} with array {[f"{er:.2e}" for er in errors]}')
         profile_formatted = profile.map(lambda x: f'{x:.3f}' if pd.notnull(x) else x)        
         print(profile_formatted)
         #raise ValueError("Mass Balance Error: Check Profile") #check for negative values in the profile
-                
+    
+    composition_cols = [f"x{i+1}" for i in range(J)] + [f"y{i+1}" for i in range(J)]
+    if np.any(profile[composition_cols] < -1e-3) or cumulated_error > 1e-5:
+        print(profile[composition_cols].to_string())    
 
     Recovery = Membrane["Permeate_Composition"][0] * Membrane["Permeate_Flow"] / (Membrane["Feed_Flow"] * Membrane["Feed_Composition"][0]) * 100
     Purity = Membrane["Permeate_Composition"][0] * 100

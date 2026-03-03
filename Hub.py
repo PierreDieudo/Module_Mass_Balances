@@ -36,7 +36,7 @@ def Hub_Connector(Export_to_mass_balance): #general because it will call the cor
     if Membrane["Sweep_Flow"]!=0 and abs(sum(Membrane["Sweep_Composition"]) - 1) > 1e-8:
         raise ValueError(f"Initial mole fractions do not sum to 1 ({(sum(Membrane["Sweep_Composition"])):.3e})")
   
-
+    '''
     #Determines Module length and number of fibers to minimise pressure drop (Shao, Huang, 2006)
     def module_length_calc(L):
             R = 8.314 # J/(mol.K) - gas constant
@@ -66,8 +66,10 @@ def Hub_Connector(Export_to_mass_balance): #general because it will call the cor
     else:
         print("Optimisation failed to find a suitable module length")
         Fibre_Dimensions['Length'] = 0.1 #m - module length
+    '''
 
-
+    #fix module length to 0.5 m
+    Fibre_Dimensions['Length'] = 0.5 #m
 
     fibre_area = math.pi * Fibre_Dimensions['Length'] * Fibre_Dimensions["D_out"] #m2
     Fibre_Dimensions["Number_Fibre"] =  Membrane["Area"] / fibre_area #number of fibres in the module

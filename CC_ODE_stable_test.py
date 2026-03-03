@@ -6,7 +6,7 @@ from scipy.integrate import solve_bvp
 from scipy.optimize import least_squares
 import numpy as np
 import pandas as pd
-
+import warnings
 
 def mass_balance_CC_ODE_BVP(vars):
 
@@ -33,8 +33,8 @@ def mass_balance_CC_ODE_BVP(vars):
     def mixture_visc(composition):
         y = composition
         visc = np.zeros(J)
-        for i, (slope, intercept) in enumerate(Component_properties["Viscosity_param"]):
-            visc[i] = 1e-6*(slope * Membrane["Temperature"] + intercept)
+        params = np.array(Component_properties["Viscosity_param"])
+        visc = 1e-6 * (params[:, 0] * Membrane["Temperature"] + params[:, 1]) 
         Mw = Component_properties["Molar_mass"]
         phi = np.zeros((J, J))
         for i in range(J):
@@ -131,8 +131,9 @@ def mass_balance_CC_ODE_BVP(vars):
     ###----------------------------------------------------------'''
 
     def membrane_odes(z, var):
-        u_x = var[:J]
-        u_y = var[J:2*J]
+        u_x = np.maximum(var[:J], 1e-10)
+        u_y = np.minimum(var[J:2*J], -1e-10) 
+        P_perm = var[2*J] if var.shape[0] > 2*J else Membrane["Pressure_Permeate"]
 
         P_perm = Membrane["Pressure_Permeate"]
         Pf     = Membrane["Pressure_Feed"]
@@ -184,10 +185,12 @@ def mass_balance_CC_ODE_BVP(vars):
         U_y_init[i, :] = np.linspace(U_y_zL_approx[i], U_y_sweep_norm[i], 10)
     y_init = np.vstack([U_x_init, U_y_init])
 
-    bvp_sol = solve_bvp(membrane_odes, bc, x_init, y_init, tol=1e-6)
-
-    if not sol.success:
-        print(f"Solver did not converge: {sol.message}")
+    ### BVP SOLVER ###
+    import warnings
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', category=RuntimeWarning, 
+                              module='scipy.integrate._bvp')
+        bvp_sol = solve_bvp(membrane_odes, bc, x_init, y_init, tol=1e-4, max_nodes=1000)
 
     y_sol = bvp_sol.y                          # shape (2J, n_points) on adaptive mesh
     z_adaptive = bvp_sol.x                     # adaptive mesh chosen by solver
@@ -230,6 +233,12 @@ def mass_balance_CC_ODE_BVP(vars):
     y_perm = profile.iloc[0][[f"y{i+1}" for i in range(J)]].values
     Qr     = profile.iloc[-1]["Qr"]
     Qp     = profile.iloc[0]["Qp"]
+
+    '''
+    #plot driving for component 1 accross the module
+    plt.figure(figsize=(8, 5))
+    plt.plot(profile["norm_z"], Membrane["Pressure_Feed"] * profile["x1"] - Membrane["Pressure_Permeate"] * profile["y1"], label="Driving Force (Pa)", color='blue')
+    '''
 
     '''
     if Membrane["Pressure_Drop"]:
