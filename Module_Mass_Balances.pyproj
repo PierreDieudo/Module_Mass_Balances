@@ -31,7 +31,7 @@
     <Compile Include="CC.py" />
     <Compile Include="Hub.py" />
     <Compile Include="MAIN_dQ.py" />
-    <Compile Include="CC_stable_test.py" />
+    <Compile Include="CC_ODE_stable_test.py" />
     <Compile Include="CO_Molten.py" />
     <Compile Include="CO_ODE.py" />
     <Compile Include="CO_var_mesh.py" />

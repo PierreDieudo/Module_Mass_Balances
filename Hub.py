@@ -62,7 +62,7 @@ def Hub_Connector(Export_to_mass_balance): #general because it will call the cor
     result = minimize_scalar(objective, bounds=(1e-1, 2), method='bounded')
     if result.success:
         Fibre_Dimensions['Length'] = float(result.x)
-        print(f'Optimised module length: {Fibre_Dimensions['Length']:.4f} m')
+        #print(f'Optimised module length: {Fibre_Dimensions['Length']:.4f} m')
     else:
         print("Optimisation failed to find a suitable module length")
         Fibre_Dimensions['Length'] = 0.1 #m - module length
@@ -91,6 +91,10 @@ def Hub_Connector(Export_to_mass_balance): #general because it will call the cor
     elif Membrane["Solving_Method"] == 'CC_ODE':
         from CC_ODE import mass_balance_CC_ODE
         return mass_balance_CC_ODE(vars)
+    elif Membrane["Solving_Method"] == 'CC_ODE_stable':
+        from CC_ODE_stable_test import mass_balance_CC_ODE_BVP
+        return mass_balance_CC_ODE_BVP(vars)
+
     else:
         raise ValueError("Solving_Method not recognised")
 
