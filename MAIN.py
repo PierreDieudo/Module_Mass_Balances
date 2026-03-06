@@ -1,12 +1,10 @@
 
-
 import profile
 import numpy as np
 import pandas as pd
 import os
 from Hub import Hub_Connector
 import warnings
-
 
 ''' General information here: 
 
@@ -40,7 +38,7 @@ Membrane = {
     "Feed_Flow": 11.8,                           # mol/s (PS: 1 mol/s = 3.6 kmol/h)
     "Pressure_Feed": 5,                         # bar
     "Pressure_Permeate": 1,                   # bar
-    "Area": 200,                                # m2
+    "Area": 50,                                # m2
     "Permeance": [7700,140,210],              # GPU
     "Sweep_Option": False,                    # True or False - use a sweep or not
     "Sweep_Source": 'User',                   # 'User' or 'Recycling' - where the sweep comes from

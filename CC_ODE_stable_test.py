@@ -6,7 +6,6 @@ from scipy.integrate import solve_bvp
 from scipy.optimize import least_squares
 import numpy as np
 import pandas as pd
-import warnings
 
 def mass_balance_CC_ODE_BVP(vars):
 
@@ -186,7 +185,7 @@ def mass_balance_CC_ODE_BVP(vars):
     y_init = np.vstack([U_x_init, U_y_init])
 
     ### BVP SOLVER ###
-    import warnings
+    import warnings                                                                                                                                                                                                                                                                                                                                                                                                             
     with warnings.catch_warnings():
         warnings.filterwarnings('ignore', category=RuntimeWarning, 
                               module='scipy.integrate._bvp')
@@ -197,7 +196,7 @@ def mass_balance_CC_ODE_BVP(vars):
 
     U_x_profile = y_sol[:J, :]  * Membrane["Total_Flow"]
     U_y_profile = y_sol[J:2*J, :] * Membrane["Total_Flow"]
-
+    
     if Membrane["Sweep_Flow"] == 0:
         threshold = 1e-4
     else:
