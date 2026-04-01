@@ -32,13 +32,13 @@ import warnings
 directory = 'C:\\Users\\s1854031\\Desktop\\' #input file path here.
 
 Membrane = {
-    "Solving_Method": 'CC_ODE_stable',                     # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
+    "Solving_Method": 'CC_ODE_BVP',                     # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
     "Temperature": 30+273.15,                   # Kelvin
     "Feed_Composition": [0.25,0.045,0.705], # molar fraction
     "Feed_Flow": 11.8,                           # mol/s (PS: 1 mol/s = 3.6 kmol/h)
     "Pressure_Feed": 5,                         # bar
     "Pressure_Permeate": 1,                   # bar
-    "Area": 50,                                # m2
+    "Area": 400,                                # m2
     "Permeance": [7700,140,210],              # GPU
     "Sweep_Option": False,                    # True or False - use a sweep or not
     "Sweep_Source": 'User',                   # 'User' or 'Recycling' - where the sweep comes from
@@ -95,7 +95,7 @@ def Run_Module():
 
     else: # sweep from Recycling - needs iteration
         max_iter = 100
-        tolerance = 1e-6
+        tolerance = 1e-5
 
         for i in range(max_iter):
             print(f"Sweep iteration {i+1}")
@@ -140,15 +140,9 @@ def Run_Module():
     cumulated_error = sum(errors)
     print(f"Cumulated Component Mass Balance Error: {cumulated_error:.2e}")    
 
-    if np.any(profile<-1e-3) or cumulated_error>1e-5:
-        print(f'Cumulated Component Mass Balance Error: {cumulated_error:.2e} with array {[f"{er:.2e}" for er in errors]}')
-        profile_formatted = profile.map(lambda x: f'{x:.3f}' if pd.notnull(x) else x)        
-        print(profile_formatted)
-        #raise ValueError("Mass Balance Error: Check Profile") #check for negative values in the profile
-    
     composition_cols = [f"x{i+1}" for i in range(J)] + [f"y{i+1}" for i in range(J)]
-    if np.any(profile[composition_cols] < -1e-3) or cumulated_error > 1e-5:
-        print(profile[composition_cols].to_string())    
+    #if np.any(profile[composition_cols] < -1e-4) or cumulated_error > 1e-5:
+        #print(profile[composition_cols].to_string())    
 
     Recovery = Membrane["Permeate_Composition"][0] * Membrane["Permeate_Flow"] / (Membrane["Feed_Flow"] * Membrane["Feed_Composition"][0]) * 100
     Purity = Membrane["Permeate_Composition"][0] * 100

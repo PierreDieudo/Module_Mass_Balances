@@ -1,7 +1,5 @@
 import math
-from tkinter import N
 import matplotlib.pyplot as plt
-import scipy
 from scipy.integrate import solve_bvp
 from scipy.optimize import least_squares
 import numpy as np
@@ -154,7 +152,14 @@ def mass_balance_CC_ODE_BVP(vars):
         x[:, safe_x] = u_x[:, safe_x] / sum_ux[safe_x]
         y[:, safe_y] = u_y[:, safe_y] / sum_uy[safe_y]
 
-        du_x_dz = -(permeance[:, None] * A / Ttot) * (Pf * x - P_perm * y)
+        driving_force = Pf * x - P_perm * y
+    
+        # suppress permeation when retentate is nearly depleted
+        sum_ux = np.sum(u_x, axis=0)
+        depleted = sum_ux < 1e-4   # shape (n_points,)
+        driving_force[:, depleted] = 0.0
+    
+        du_x_dz = -(permeance[:, None] * A / Ttot) * driving_force
         du_y_dz = -du_x_dz
 
         return np.concatenate([du_x_dz, du_y_dz], axis=0)
@@ -218,6 +223,22 @@ def mass_balance_CC_ODE_BVP(vars):
     Qp_profile = -np.sum(U_y_profile, axis=0)
 
     z_norm = z_adaptive / Fibre_Dimensions["Length"]
+
+    depletion_mask = Qr_profile > 1e-4 * Membrane["Total_Flow"]
+    if not np.all(depletion_mask):
+        last_valid = np.argmax(~depletion_mask)  # first index where depleted
+        z_adaptive  = z_adaptive[:last_valid]
+        U_x_profile = U_x_profile[:, :last_valid]
+        U_y_profile = U_y_profile[:, :last_valid]
+        sum_ux_prof = sum_ux_prof[:last_valid]
+        sum_uy_prof = sum_uy_prof[:last_valid]
+        Qr_profile  = Qr_profile[:last_valid]
+        Qp_profile  = Qp_profile[:last_valid]
+        x_profiles  = x_profiles[:, :last_valid]
+        y_profiles  = y_profiles[:, :last_valid]
+        z_norm      = z_adaptive / L
+        print(f"Retentate depleted at norm_z={z_norm[-1]:.3f} ; equivalent to an area of {z_norm[-1]*Membrane["Area"]:.2f} m2")
+
     data = {
         "norm_z":   z_norm,
         **{f"x{i+1}": x_profiles[i, :] for i in range(J)},
