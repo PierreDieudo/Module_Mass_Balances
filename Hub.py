@@ -68,11 +68,9 @@ def Hub_Connector(Export_to_mass_balance): #general because it will call the cor
         Fibre_Dimensions['Length'] = 0.1 #m - module length
     '''
 
-    #fix module length to 0.5 m
-    Fibre_Dimensions['Length'] = 0.5 #m
-
     fibre_area = math.pi * Fibre_Dimensions['Length'] * Fibre_Dimensions["D_out"] #m2
     Fibre_Dimensions["Number_Fibre"] =  Membrane["Area"] / fibre_area #number of fibres in the module
+    Fibre_Dimensions["Number_Module"] = math.ceil(Membrane["Area"] / Fibre_Dimensions["A_module"]) #number of modules in the system"]
 
     #Solving the mass balance (for now humid conditions are not considered)
     vars = Membrane, Component_properties, Fibre_Dimensions
@@ -94,10 +92,12 @@ def Hub_Connector(Export_to_mass_balance): #general because it will call the cor
         from CC_ODE import mass_balance_CC_ODE
         return mass_balance_CC_ODE(vars)
     elif Membrane["Solving_Method"] == 'CC_ODE_BVP':
-        from CC_ODE_BVP import mass_balance_CC_ODE_BVP
-        return mass_balance_CC_ODE_BVP(vars)
-
-
+        if not Membrane["Pressure_Drop"]:
+            from CC_ODE_BVP import mass_balance_CC_ODE_BVP
+            return mass_balance_CC_ODE_BVP(vars)
+        else: 
+            from CC_ODE_BVP_dP import mass_balance_CC_ODE_BVP_dP
+            return mass_balance_CC_ODE_BVP_dP(vars)
     else:
         raise ValueError("Solving_Method not recognised")
 

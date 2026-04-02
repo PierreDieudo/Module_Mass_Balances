@@ -24,6 +24,7 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="CC_ODE_BVP_dP.py" />
     <Compile Include="Co-current Model.py" />
     <Compile Include="Counter-Current Model.py" />
     <Compile Include="MAIN.py" />
