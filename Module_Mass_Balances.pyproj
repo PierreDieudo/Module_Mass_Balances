@@ -38,6 +38,8 @@
     <Compile Include="CC_ODE.py" />
     <Compile Include="CC_ODE_dP.py" />
     <Compile Include="CO_ODE_IVP.py" />
+    <Compile Include="Chiara_dPerm_dz.py" />
+    <Compile Include="Chiara_dPerm_dz_dP.py" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Requirements.txt" />

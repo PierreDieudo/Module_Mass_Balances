@@ -37,25 +37,27 @@ Run_Name  = 'test2'  # Optional name for this run (e.g. 'high_pressure_test').
                 # Leave as '' to use the timestamp only as the subfolder name.
 
 Membrane = {
-    "Solving_Method": 'CC_ODE_BVP',                     # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
+    "Solving_Method": 'CC_Chiara_dPerm_dz',                     # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
     "Temperature": 30+273.15,                   # Kelvin
-    "Feed_Composition": [0.25,0.045,0.705], # molar fraction
+    "Feed_Composition": [0.25,0.75], # molar fraction
     "Feed_Flow": 11.8,                           # mol/s (PS: 1 mol/s = 3.6 kmol/h)
-    "Pressure_Feed": 5,                         # bar
-    "Pressure_Permeate": 1,                   # bar
-    "Area": 300,                                # m2
-    "Permeance": [7700,140,210],              # GPU
+    "Pressure_Feed": 1.5,                         # bar
+    "Pressure_Permeate": 0.2,                   # bar
+    "Area": 1000,                                # m2
+    "Permeance": [70,2],              # GPU
+    #"varper": [1000,20],
+    "fac": [-0.5,-0.5],
     "Sweep_Option": False,                    # True or False - use a sweep or not
     "Sweep_Source": 'User',                   # 'User' or 'Recycling' - where the sweep comes from
     "Recycling_Ratio": 0,                     # Fraction of a stream (likely retentate) being sent back as sweep 
     "Pressure_Drop": True, 
-    "Export_Profile": False,                    # True or False - export the profile to a CSV file        
+    "Export_Profile": True,                    # True or False - export the profile to a CSV file        
     "Plot_Profiles": True,                      # True or False - plot the profile of the membrane"
     }
 
 Component_properties = {
-    "Viscosity_param": ([0.0479,0.6112],[0.0466,3.8874],[0.0558,3.8970]),  # Viscosity parameters for each component: slope and intercept for the viscosity correlation wiht temperature (in K) - from NIST
-    "Molar_mass": [44.009, 28.0134, 31.999]                                 # Molar mass of each component in g/mol
+    "Viscosity_param": ([0.0479,0.6112],[0.0466,3.8874]),#[0.0558,3.8970]),#, [0.03333, -0.23498]),  # Viscosity parameters for each component: slope and intercept for the viscosity correlation wiht temperature (in K) - from NIST
+    "Molar_mass": [44.009, 28.0134]#, 31.999]#,18.01528],                                           # Molar mass of each component in g/mol
     }
 
 Fibre_Dimensions = {
@@ -69,7 +71,7 @@ Fibre_Dimensions = {
 
 User_Sweep = { # Only if Sweep_Option is True and Sweep source is User
     "Sweep_Flow": 1,                         # mol/s 
-    "Sweep_Composition": [0,1,0],          # molar fraction
+    "Sweep_Composition": [0,1]#,0],          # molar fraction
     }
 
 #--------------------------------------#
@@ -160,7 +162,7 @@ def Run_Module():
     Purity    = Membrane["Permeate_Composition"][0] * 100
     Stage_cut = Membrane["Permeate_Flow"] / (Membrane["Feed_Flow"] + Membrane["Sweep_Flow"]) * 100
     print(f'Simulation finished with Recovery: {Recovery:.2f}%, Purity: {Purity:.2f}%, and a stage cut of {Stage_cut:.2f}%')
-
+    print()
     return profile
 
 
@@ -197,7 +199,6 @@ def plot_composition_profiles(profile):
     plt.tight_layout()
     fig1_path = os.path.join(output_directory, f"composition_profile_{run_folder}.png")
     fig1.savefig(fig1_path, dpi=150)
-    print(f"Composition profile saved to {fig1_path}")
 
     # --- Figure 2: Flow profiles ---------
     fig2, axes2 = plt.subplots(1, 2, figsize=(16, 5))
@@ -225,14 +226,29 @@ def plot_composition_profiles(profile):
     plt.tight_layout()
     fig2_path = os.path.join(output_directory, f"flow_profile_{run_folder}.png")
     fig2.savefig(fig2_path, dpi=150)
-    print(f"Flow profile saved to {fig2_path}")
 
+    # --- Figure 3: Permeance profiles (only if available) ---
+    perm_cols = [f"perm{j+1} (GPU)" for j in range(J)]
+    if all(col in profile.columns for col in perm_cols):
+        fig3, ax3 = plt.subplots(figsize=(8, 5))
+        for j in range(J):
+            ax3.plot(z, profile[perm_cols[j]], label=f'Component {j+1}')
+        ax3.set_xlabel('Normalised Length')
+        ax3.set_ylabel('Permeance (GPU)')
+        ax3.set_title('Permeance Profile Along the Module')
+        ax3.legend()
+        ax3.grid(True)
+        plt.tight_layout()
+        fig3_path = os.path.join(output_directory, f"permeance_profile_{run_folder}.png")
+        fig3.savefig(fig3_path, dpi=150)
+    
     plt.close('all')  # no matplotlib window - images open via Windows viewer instead
+    print(f"Figures saved to {output_directory}")
 
-    # Open both images with the default Windows image viewer
+    # Open images with the default Windows image viewer
     os.startfile(fig1_path)
     os.startfile(fig2_path)
-
+    os.startfile(fig3_path) if all(col in profile.columns for col in perm_cols) else None
 
 # --- Main execution ----------------
 profile = Run_Module()
@@ -245,4 +261,5 @@ if Membrane["Export_Profile"]:
 if Membrane["Plot_Profiles"]:
     plot_composition_profiles(profile)
 
+print()
 print("Done - probably")

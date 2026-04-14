@@ -98,6 +98,13 @@ def Hub_Connector(Export_to_mass_balance): #general because it will call the cor
         else: 
             from CC_ODE_BVP_dP import mass_balance_CC_ODE_BVP_dP
             return mass_balance_CC_ODE_BVP_dP(vars)
+    elif Membrane["Solving_Method"] == 'CC_Chiara_dPerm_dz':
+        if not Membrane["Pressure_Drop"]:
+           from Chiara_dPerm_dz import mass_balance_CC_Chiara_dPerm_dz
+           return mass_balance_CC_Chiara_dPerm_dz(vars)
+        else:
+            from Chiara_dPerm_dz_dP import mass_balance_CC_Chiara_dPerm_dz_dP
+            return mass_balance_CC_Chiara_dPerm_dz_dP(vars)
     else:
         raise ValueError("Solving_Method not recognised")
 
