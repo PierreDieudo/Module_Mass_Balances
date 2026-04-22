@@ -336,6 +336,14 @@ def mass_balance_CC_Chiara_dPerm_dz_dP(vars):
     ax2.plot(profile["norm_z"], profile["P_perm"], label="Permeate Pressure (Pa)", color='blue')
     ax2.set_ylabel("Permeate Pressure (Pa)", color='blue')
     ax2.tick_params(axis='y', labelcolor='blue')
+
+    from matplotlib.ticker import ScalarFormatter
+    # Disable offset (the +2e4 at the top)
+    formatter = ScalarFormatter(useOffset=False)
+    ax1.yaxis.set_major_formatter(formatter)
+    ax2.yaxis.set_major_formatter(formatter)
+
+
     plt.title("Pressure Profiles Along the Module")
     plt.show()
     

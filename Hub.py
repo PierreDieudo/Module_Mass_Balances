@@ -70,7 +70,7 @@ def Hub_Connector(Export_to_mass_balance): #general because it will call the cor
 
     fibre_area = math.pi * Fibre_Dimensions['Length'] * Fibre_Dimensions["D_out"] #m2
     Fibre_Dimensions["Number_Fibre"] =  Membrane["Area"] / fibre_area #number of fibres in the module
-    Fibre_Dimensions["Number_Module"] = math.ceil(Membrane["Area"] / Fibre_Dimensions["A_module"]) #number of modules in the system"]
+    Fibre_Dimensions["Number_Module"] = math.ceil(Membrane["Area"] / Fibre_Dimensions["A_module"]) #number of modules in the system"
 
     #Solving the mass balance (for now humid conditions are not considered)
     vars = Membrane, Component_properties, Fibre_Dimensions

@@ -2,6 +2,7 @@ import profile
 import numpy as np
 import pandas as pd
 import os
+import math
 import matplotlib
 matplotlib.use("TkAgg")          # GUI backend - windows survive after the terminal closes
 import matplotlib.pyplot as plt
@@ -43,10 +44,10 @@ Membrane = {
     "Feed_Flow": 11.8,                           # mol/s (PS: 1 mol/s = 3.6 kmol/h)
     "Pressure_Feed": 1.5,                         # bar
     "Pressure_Permeate": 0.2,                   # bar
-    "Area": 1000,                                # m2
+    "Area": 100,                                # m2
     "Permeance": [70,2],              # GPU
     #"varper": [1000,20],
-    "fac": [-0.5,-0.5],
+    "fac": [-2,2],
     "Sweep_Option": False,                    # True or False - use a sweep or not
     "Sweep_Source": 'User',                   # 'User' or 'Recycling' - where the sweep comes from
     "Recycling_Ratio": 0,                     # Fraction of a stream (likely retentate) being sent back as sweep 
@@ -63,11 +64,22 @@ Component_properties = {
 Fibre_Dimensions = {
     "D_in" : 600 * 1e-6, # Inner diameter in m (from mm)
     "D_out" : 800 * 1e-6, # Outer diameter in m (from mm)
-    "D_Module" : 0.375*2, # Diameter of the module in m
-    "Length": 0.5, # Length of the module in m
-    "D_hydraulic": 7.98403e-4, # Hydraulic diameter in m (per module - careful with flowrate in pressure drop function)
-    "A_module": 1257, # Cross-sectional area of a module in m2
+    "Volume_Packing": 0.5, # (m3/m3) Volume packing of the fibres in the module
+    "Fibre_per_Module": 250000, # Number of fibres in a module
+    "Length": 1, # Length of the module in m
     }
+
+# Calculate module dimensions based on the fibre dimensions and packing
+D_Module = 2 * math.sqrt((Fibre_Dimensions["D_out"]/2)**2*Fibre_Dimensions["Fibre_per_Module"]/Fibre_Dimensions["Volume_Packing"]) # Diameter of the module in m
+D_hydraulic = 4 * ( math.pi * (D_Module/2) **2 - math.pi * (Fibre_Dimensions["D_out"]/2)**2 * Fibre_Dimensions["Fibre_per_Module"]) / (math.pi * D_Module + math.pi * Fibre_Dimensions["D_out"] * Fibre_Dimensions["Fibre_per_Module"]) # 4* Shell cross section area / Wetted surface -> Hydraulic diameter of the shell side in m
+A_module = Fibre_Dimensions["Fibre_per_Module"] * Fibre_Dimensions["Length"] * math.pi * Fibre_Dimensions["D_out"] # Membrane area of a module in m2
+
+# Update the fibre dimensions with the calculated module dimensions
+Fibre_Dimensions["D_Module"] = D_Module
+Fibre_Dimensions["D_hydraulic"] = D_hydraulic
+Fibre_Dimensions["A_module"] = A_module
+
+#print(Fibre_Dimensions)
 
 User_Sweep = { # Only if Sweep_Option is True and Sweep source is User
     "Sweep_Flow": 1,                         # mol/s 
