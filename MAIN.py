@@ -34,20 +34,19 @@ import warnings
 #-----------------------------------------#
 
 directory = 'C:\\Users\\s1854031\\Desktop\\'  # input file path here.
-Run_Name  = 'test2'  # Optional name for this run (e.g. 'high_pressure_test').
+Run_Name  = ''  # Optional name for this run (e.g. 'high_pressure_test').
                 # Leave as '' to use the timestamp only as the subfolder name.
 
 Membrane = {
-    "Solving_Method": 'CC_Chiara_dPerm_dz',                     # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
-    "Temperature": 30+273.15,                   # Kelvin
-    "Feed_Composition": [0.25,0.75], # molar fraction
-    "Feed_Flow": 11.8,                           # mol/s (PS: 1 mol/s = 3.6 kmol/h)
-    "Pressure_Feed": 1.5,                         # bar
-    "Pressure_Permeate": 0.2,                   # bar
-    "Area": 100,                                # m2
-    "Permeance": [70,2],              # GPU
-    #"varper": [1000,20],
-    "fac": [-2,2],
+    "Solving_Method": 'CC_ODE',                     # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
+    "Temperature": 35+273.15,                   # Kelvin
+    "Feed_Composition": [0.20195568, 0.56595202, 0.16738301, 0.06470929], # molar fraction
+    "Feed_Flow": 77.577665779,                           # mol/s (PS: 1 mol/s = 3.6 kmol/h)
+    "Pressure_Feed": 1.42,                         # bar
+    "Pressure_Permeate": 0.22,                   # bar
+    "Area": 4170.5753123,                                # m2
+    "Permeance": [2214, 112, 418, 2214],              # GPU
+    "fac": [0,0,0,0],
     "Sweep_Option": False,                    # True or False - use a sweep or not
     "Sweep_Source": 'User',                   # 'User' or 'Recycling' - where the sweep comes from
     "Recycling_Ratio": 0,                     # Fraction of a stream (likely retentate) being sent back as sweep 
@@ -56,9 +55,11 @@ Membrane = {
     "Plot_Profiles": True,                      # True or False - plot the profile of the membrane"
     }
 
+print(Membrane)
+
 Component_properties = {
-    "Viscosity_param": ([0.0479,0.6112],[0.0466,3.8874]),#[0.0558,3.8970]),#, [0.03333, -0.23498]),  # Viscosity parameters for each component: slope and intercept for the viscosity correlation wiht temperature (in K) - from NIST
-    "Molar_mass": [44.009, 28.0134]#, 31.999]#,18.01528],                                           # Molar mass of each component in g/mol
+    "Viscosity_param": ([0.0479,0.6112],[0.0466,3.8874],[0.0558,3.8970], [0.03333, -0.23498]),  # Viscosity parameters for each component: slope and intercept for the viscosity correlation wiht temperature (in K) - from NIST
+    "Molar_mass": [44.009, 28.0134, 31.999,18.01528],                                           # Molar mass of each component in g/mol
     }
 
 Fibre_Dimensions = {
@@ -66,7 +67,7 @@ Fibre_Dimensions = {
     "D_out" : 800 * 1e-6, # Outer diameter in m (from mm)
     "Volume_Packing": 0.5, # (m3/m3) Volume packing of the fibres in the module
     "Fibre_per_Module": 250000, # Number of fibres in a module
-    "Length": 1, # Length of the module in m
+    "Length": 5, # Length of the module in m
     }
 
 # Calculate module dimensions based on the fibre dimensions and packing

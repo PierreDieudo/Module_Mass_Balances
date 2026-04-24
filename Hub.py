@@ -88,10 +88,8 @@ def Hub_Connector(Export_to_mass_balance): #general because it will call the cor
     elif Membrane["Solving_Method"] == 'CO_ODE':
         from CO_ODE_IVP import mass_balance_CO_ODE
         return mass_balance_CO_ODE(vars)
-    elif Membrane["Solving_Method"] == 'CC_ODE':
-        from CC_ODE import mass_balance_CC_ODE
         return mass_balance_CC_ODE(vars)
-    elif Membrane["Solving_Method"] == 'CC_ODE_BVP':
+    elif Membrane["Solving_Method"] == 'CC_ODE':
         if not Membrane["Pressure_Drop"]:
             from CC_ODE_BVP import mass_balance_CC_ODE_BVP
             return mass_balance_CC_ODE_BVP(vars)
