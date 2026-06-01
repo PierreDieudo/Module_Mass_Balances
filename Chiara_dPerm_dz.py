@@ -145,7 +145,7 @@ def mass_balance_CC_Chiara_dPerm_dz(vars):
         x = np.zeros_like(u_x)
         y = np.zeros_like(u_y)
 
-        varper = permeance[:, None] * (1 - fac[:, None] * z[None, :]) #corrected to vectorise varper 
+        varper = permeance[:, None] * (1 - fac[:, None] * z[None, :]/Fibre_Dimensions["Length"]) #corrected to vectorise varper
     
         safe_x = np.abs(sum_ux) > 1e-6
         safe_y = np.abs(sum_uy) > 1e-6

@@ -44,26 +44,6 @@ def mass_balance_CC_Chiara_dPerm_dz_dP(vars):
 
         return visc_mix
 
-
-    '''    def mixture_visc(composition):
-            y = composition
-            visc = np.zeros(J)
-            params = np.array(Component_properties["Viscosity_param"])
-            visc = 1e-6 * (params[:, 0] * Membrane["Temperature"] + params[:, 1]) 
-            Mw = Component_properties["Molar_mass"]
-            phi = np.zeros((J, J))
-            for i in range(J):
-                for j in range(J):
-                    if i != j:
-                        phi[i][j] = ( ( 1 + ( visc[i]/visc[j] )**0.5 * ( Mw[j]/Mw[i] )**0.25 ) **2 ) / ( ( 8 * ( 1 + Mw[i]/Mw[j] ) )**0.5 )
-                    else:
-                        phi[i][j] = 1
-            nu = np.zeros(J)
-            for i in range(J):
-                nu[i] = y[i] * visc[i] / sum(y[j] * phi[i][j] for j in range(J))
-            return sum(nu)
-    '''
-
     '''----------------------------------------------------------###
     ###--------------- Pressure Drop Calculation ----------------###
     ###----------------------------------------------------------'''
@@ -74,20 +54,27 @@ def mass_balance_CC_Chiara_dPerm_dz_dP(vars):
         # P shape: (n_pts,)
         visc_mix = mixture_visc(composition)   # shape (n_pts,)
         D_in = Fibre_Dimensions["D_in"]
+        #convert flow in mol/s to m3/s using ideal gas law at permeate conditions
+        Q = Q * 8.314 * Membrane["Temperature"] / P  # now in m3/s
         Q_per_fibre = Q / Fibre_Dimensions['Number_Fibre']
         R = 8.314
+        velocity = (4 * Q_per_fibre) / (math.pi * D_in**2)  # velocity in each fibre, shape (n_pts,)
+        #(velocity)
         nu = (Q_per_fibre * R * Membrane["Temperature"]) / P
-        dP_dz = (128 * visc_mix) / (math.pi * D_in**4 * P) * nu
+        dP_dz = (128 * visc_mix) / (math.pi * D_in**4) * nu #Hagen Poiseuille
         return dP_dz   # shape (n_pts,)
 
     def pressure_drop_retentate(composition, Q, P):
         visc_mix = mixture_visc(composition)   # shape (n_pts,)
         D_hyd = Fibre_Dimensions["D_hydraulic"]
+        Q = Q * 8.314 * Membrane["Temperature"] / P  # now in m3/s
         Q_per_module = Q / Fibre_Dimensions['Number_Module']
+        velocity = (Q_per_module)/(math.pi* (Fibre_Dimensions["D_Module"]/2)**2 - math.pi/4 * (Fibre_Dimensions["D_out"]**2)* Fibre_Dimensions['Number_Fibre'])  # velocity in the module, shape (n_pts,)
         R = 8.314
         nu = (Q_per_module * R * Membrane["Temperature"]) / P
-        dP_dz = (128 * visc_mix) / (math.pi * D_hyd**4 * P) * nu
+        dP_dz = (128 * visc_mix) / (math.pi * Fibre_Dimensions["D_hydraulic"]**4)  * nu
         return dP_dz   # shape (n_pts,)
+  
   
     '''---------------------------------------------------------------###
     ###---------- Non discretised solution for initial guess ----------###
@@ -158,10 +145,10 @@ def mass_balance_CC_Chiara_dPerm_dz_dP(vars):
 
  
     def membrane_odes(z, var):
-        u_x   = np.maximum(var[:J],    1e-10)
-        u_y   = np.minimum(var[J:2*J], -1e-10)
-        P_perm = var[2*J]      # shape (n_pts,)
-        P_ret  = var[2*J+1]    # shape (n_pts,)
+        u_x = np.maximum(var[:J], 1e-10)
+        u_y = np.minimum(var[J:2*J], -1e-10) 
+        P_ret = np.maximum(var[2*J],   1e3)   # minimum 0.01 bar
+        P_perm  = np.maximum(var[2*J+1], 1e3)   # minimum 0.01 bar
  
         A      = Fibre_Dimensions["D_out"] * math.pi * Fibre_Dimensions["Number_Fibre"]
         Ttot   = Membrane["Total_Flow"]
@@ -169,7 +156,7 @@ def mass_balance_CC_Chiara_dPerm_dz_dP(vars):
         permeance = np.array(Membrane["Permeance"])
         fac = np.array(Membrane["fac"])
         # position-dependent permeance: shape (J, n_pts)
-        varper = permeance[:, None] * (1 - fac[:, None] * z[None, :]) 
+        varper = permeance[:, None] * (1 - fac[:, None] * z[None, :] / Fibre_Dimensions["Length"]) #factor increasing permeance throught normalised length
 
         sum_ux = np.sum(u_x, axis=0)
         sum_uy = np.sum(u_y, axis=0)
@@ -186,6 +173,7 @@ def mass_balance_CC_Chiara_dPerm_dz_dP(vars):
         driving_force = P_ret * x - P_perm * y   # (J, n_pts)
  
         # suppress permeation when retentate is nearly depleted
+        sum_ux = np.sum(u_x, axis=0)
         depleted = sum_ux < 1e-4
         driving_force[:, depleted] = 0.0
  
@@ -193,28 +181,25 @@ def mass_balance_CC_Chiara_dPerm_dz_dP(vars):
         du_y_dz = -du_x_dz
  
         # retentate pressure drops in +z direction
-        dP_ret_dz  = -pressure_drop_retentate(x, sum_ux * Ttot, P_ret)
+        dP_feed_dz  = -pressure_drop_retentate(x, sum_ux * Ttot, P_ret)
  
         # permeate pressure rises in +z direction (flows in -z)
         dP_perm_dz = +pressure_drop_permeate(np.abs(y), -sum_uy * Ttot, P_perm)
  
-        return np.concatenate([
-            du_x_dz,
-            du_y_dz,
-            dP_perm_dz[None, :],
-            dP_ret_dz[None, :],
-        ], axis=0)
+        return np.concatenate([du_x_dz, du_y_dz, 
+                               dP_feed_dz[None, :], 
+                               dP_perm_dz[None, :]], axis=0)
  
     def bc(ya, yb):
-        feed_norm     =  Membrane["Feed_Composition"]  * Membrane["Feed_Flow"]  / Membrane["Total_Flow"]
-        sweep_norm    = -Membrane["Sweep_Composition"] * Membrane["Sweep_Flow"] / Membrane["Total_Flow"]
-        feed_pressure =  Membrane["Pressure_Feed"]
-        perm_pressure =  Membrane["Pressure_Permeate"]
+        feed_norm        =  Membrane["Feed_Composition"]  * Membrane["Feed_Flow"]  / Membrane["Total_Flow"]
+        sweep_norm       = -Membrane["Sweep_Composition"] * Membrane["Sweep_Flow"] / Membrane["Total_Flow"]
+        feed_pressure    =  Membrane["Pressure_Feed"]
+        perm_pressure    =  Membrane["Pressure_Permeate"]
         return np.concatenate([
-            ya[:J]    - feed_norm,          # retentate flow at z=0
-            yb[J:2*J] - sweep_norm,         # permeate  flow at z=L
-            [ya[2*J]   - perm_pressure],    # permeate  pressure at z=0
-            [ya[2*J+1] - feed_pressure],    # retentate pressure at z=0
+            ya[:J]    - feed_norm,
+            yb[J:2*J] - sweep_norm,
+            [ya[2*J]   - feed_pressure],    # retentate pressure at z=0 — index 2*J
+            [ya[2*J+1] - perm_pressure],    # permeate  pressure at z=0 — index 2*J+1
         ])
 
     sol = approx_shooting_guess() #conducts a simplified mass balance to get an initial guess
@@ -241,7 +226,7 @@ def mass_balance_CC_Chiara_dPerm_dz_dP(vars):
     P_perm_init = np.full(n_init, Membrane["Pressure_Permeate"]) #initial guess of constant permeate pressure, will be updated by solver to account for pressure drop
     P_feed_init = np.full(n_init, Membrane["Pressure_Feed"])
 
-    y_init = np.vstack([U_x_init, U_y_init, P_perm_init, P_feed_init])
+    y_init = np.vstack([U_x_init, U_y_init, P_feed_init, P_perm_init]) 
 
     ### BVP SOLVER ###
     import warnings                                                                                                                                                                                                                                                                                                                                                                                                             
@@ -276,8 +261,8 @@ def mass_balance_CC_Chiara_dPerm_dz_dP(vars):
     Qr_profile =  np.sum(U_x_profile, axis=0)
     Qp_profile = -np.sum(U_y_profile, axis=0)
 
-    P_perm_profile = y_sol[2*J, :]     # permeate pressure profile
-    P_feed_profile = y_sol[2*J+1, :]   # retentate pressure profile
+    P_feed_profile = y_sol[2*J, :]     # feed pressure profile
+    P_perm_profile = y_sol[2*J+1, :]   # permeate pressure profile
 
     z_norm = z_adaptive / Fibre_Dimensions["Length"]
 
@@ -297,9 +282,9 @@ def mass_balance_CC_Chiara_dPerm_dz_dP(vars):
         x_profiles  = x_profiles[:, :last_valid]
         y_profiles  = y_profiles[:, :last_valid]
         z_norm      = z_adaptive / L
-        P_perm_profile = P_perm_profile[:last_valid]
         P_feed_profile = P_feed_profile[:last_valid]
-
+        P_perm_profile = P_perm_profile[:last_valid]
+        varper_profile = np.array(Membrane["Permeance"])[:, None] * (1 - np.array(Membrane["fac"])[:, None] * z_adaptive[None, :])
         equiv_area = z_norm[-1] * Membrane["Area"]
         print(f"Retentate depleted at norm_z={z_norm[-1]:.3f} ; equivalent to an area of {equiv_area:.2f} m2")
 
@@ -325,7 +310,7 @@ def mass_balance_CC_Chiara_dPerm_dz_dP(vars):
     Qr     = profile.iloc[-1]["Qr"]
     Qp     = profile.iloc[0]["Qp"]
 
-    
+    '''
     #plot pressure profiles on two y-axes
     fig, ax1 = plt.subplots(figsize=(8, 5))
     ax1.plot(profile["norm_z"], profile["P_feed"], label="Retentate Pressure (Pa)", color='red')
@@ -347,7 +332,19 @@ def mass_balance_CC_Chiara_dPerm_dz_dP(vars):
     plt.title("Pressure Profiles Along the Module")
     plt.show()
     
-    
+    # partial pressure difference for all components across the module
+    for i in range(J):
+        profile[f'Driving_Force_comp{i+1}'] = profile["P_feed"] * profile[f"x{i+1}"] - profile["P_perm"] * profile[f"y{i+1}"]
+    # plot driving force for all components
+    plt.figure(figsize=(8, 5))
+    for i in range(J):
+        plt.plot(profile["norm_z"], profile[f'Driving_Force_comp{i+1}'], label=f"Driving Force Comp {i+1}")
+    plt.xlabel("Normalized Module Length")
+    plt.ylabel("Driving Force (Pa)")
+    plt.title("Driving Force Profiles Along the Module")
+    plt.legend()
+    plt.show()
+    '''      
 
     '''
     #plot driving for component 1 accross the module

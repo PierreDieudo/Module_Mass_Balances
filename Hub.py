@@ -86,9 +86,12 @@ def Hub_Connector(Export_to_mass_balance): #general because it will call the cor
         from CO_Molten import mass_balance_CO_Molten
         return mass_balance_CO_Molten(vars)
     elif Membrane["Solving_Method"] == 'CO_ODE':
-        from CO_ODE_IVP import mass_balance_CO_ODE
-        return mass_balance_CO_ODE(vars)
-        return mass_balance_CC_ODE(vars)
+        if not Membrane["Pressure_Drop"]:
+            from CO_ODE_IVP import mass_balance_CO_ODE
+            return mass_balance_CO_ODE(vars)
+        else: 
+            from CO_ODE_BVP_dP import mass_balance_CO_ODE_BVP_dP
+            return mass_balance_CO_ODE_BVP_dP(vars)
     elif Membrane["Solving_Method"] == 'CC_ODE':
         if not Membrane["Pressure_Drop"]:
             from CC_ODE_BVP import mass_balance_CC_ODE_BVP
@@ -96,7 +99,7 @@ def Hub_Connector(Export_to_mass_balance): #general because it will call the cor
         else: 
             from CC_ODE_BVP_dP import mass_balance_CC_ODE_BVP_dP
             return mass_balance_CC_ODE_BVP_dP(vars)
-    elif Membrane["Solving_Method"] == 'CC_Chiara_dPerm_dz':
+    elif Membrane["Solving_Method"] == 'Chiara':
         if not Membrane["Pressure_Drop"]:
            from Chiara_dPerm_dz import mass_balance_CC_Chiara_dPerm_dz
            return mass_balance_CC_Chiara_dPerm_dz(vars)

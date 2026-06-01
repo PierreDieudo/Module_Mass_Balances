@@ -38,24 +38,24 @@ Run_Name  = ''  # Optional name for this run (e.g. 'high_pressure_test').
                 # Leave as '' to use the timestamp only as the subfolder name.
 
 Membrane = {
-    "Solving_Method": 'CC_ODE',                     # 'CC' or 'CO' - CC is for counter-current, CO is for co-current
-    "Temperature": 35+273.15,                   # Kelvin
-    "Feed_Composition": [0.20195568, 0.56595202, 0.16738301, 0.06470929], # molar fraction
-    "Feed_Flow": 77.577665779,                           # mol/s (PS: 1 mol/s = 3.6 kmol/h)
-    "Pressure_Feed": 1.42,                         # bar
+    "Solving_Method": 'Chiara',                     # 'CC_ODE' or 'CO_ODE' - CC is for counter-current, CO is for co-current. Chiara for counter current with variable permeance.
+    "Temperature": 25+273.15,                   # Kelvin
+    "Feed_Composition": [0.75024,0.12337,0.12639,0], # molar fraction
+    "Feed_Flow": 100,                           # mol/s (PS: 1 mol/s = 3.6 kmol/h)
+    "Pressure_Feed": 5,                         # bar
     "Pressure_Permeate": 0.22,                   # bar
-    "Area": 4170.5753123,                                # m2
-    "Permeance": [2214, 112, 418, 2214],              # GPU
-    "fac": [0,0,0,0],
+    "Area": 1500,                                # m2 ; a membrane module is about 251 m2
+    "Permeance": [445,46,57,445],              # GPU
+    "fac": [1,0,0,0],                        # factor for permeance variation along the module - for Chiara method only
     "Sweep_Option": False,                    # True or False - use a sweep or not
     "Sweep_Source": 'User',                   # 'User' or 'Recycling' - where the sweep comes from
     "Recycling_Ratio": 0,                     # Fraction of a stream (likely retentate) being sent back as sweep 
     "Pressure_Drop": True, 
-    "Export_Profile": True,                    # True or False - export the profile to a CSV file        
-    "Plot_Profiles": True,                      # True or False - plot the profile of the membrane"
+    "Export_Profile": False,                    # True or False - export the profile to a CSV file        
+    "Plot_Profiles": False,                      # True or False - plot the profile of the membrane"
     }
 
-print(Membrane)
+#print(Membrane)
 
 Component_properties = {
     "Viscosity_param": ([0.0479,0.6112],[0.0466,3.8874],[0.0558,3.8970], [0.03333, -0.23498]),  # Viscosity parameters for each component: slope and intercept for the viscosity correlation wiht temperature (in K) - from NIST
@@ -65,28 +65,30 @@ Component_properties = {
 Fibre_Dimensions = {
     "D_in" : 600 * 1e-6, # Inner diameter in m (from mm)
     "D_out" : 800 * 1e-6, # Outer diameter in m (from mm)
-    "Volume_Packing": 0.5, # (m3/m3) Volume packing of the fibres in the module
-    "Fibre_per_Module": 250000, # Number of fibres in a module
-    "Length": 5, # Length of the module in m
+    "Volume_Packing": 0.3, # (m3/m3) Volume packing of the fibres in the module
+    "Fibre_per_Module": 100000, # Number of fibres in a module
+    "Length": 1, # Length of the module in m
     }
 
 # Calculate module dimensions based on the fibre dimensions and packing
 D_Module = 2 * math.sqrt((Fibre_Dimensions["D_out"]/2)**2*Fibre_Dimensions["Fibre_per_Module"]/Fibre_Dimensions["Volume_Packing"]) # Diameter of the module in m
-D_hydraulic = 4 * ( math.pi * (D_Module/2) **2 - math.pi * (Fibre_Dimensions["D_out"]/2)**2 * Fibre_Dimensions["Fibre_per_Module"]) / (math.pi * D_Module + math.pi * Fibre_Dimensions["D_out"] * Fibre_Dimensions["Fibre_per_Module"]) # 4* Shell cross section area / Wetted surface -> Hydraulic diameter of the shell side in m
+D_hydraulic = Fibre_Dimensions["D_out"] * (1/ Fibre_Dimensions["Volume_Packing"] - 1)# Hydraulic diameter in m
 A_module = Fibre_Dimensions["Fibre_per_Module"] * Fibre_Dimensions["Length"] * math.pi * Fibre_Dimensions["D_out"] # Membrane area of a module in m2
 
 # Update the fibre dimensions with the calculated module dimensions
 Fibre_Dimensions["D_Module"] = D_Module
 Fibre_Dimensions["D_hydraulic"] = D_hydraulic
 Fibre_Dimensions["A_module"] = A_module
-
 #print(Fibre_Dimensions)
 
 User_Sweep = { # Only if Sweep_Option is True and Sweep source is User
-    "Sweep_Flow": 1,                         # mol/s 
-    "Sweep_Composition": [0,1]#,0],          # molar fraction
+    "Sweep_Flow": 0.1,                         # mol/s 
+    "Sweep_Composition": [0.5,0.5,0,0],          # molar fraction
     }
 
+# Calculate Q/A ratio as an idicator
+Membrane["Q_A_ratio"] = (Membrane["Feed_Flow"] * 0.0224  * 3600) / Membrane["Area"]  # (in m3(stp)/m2.hr)
+#print(Membrane["Q_A_ratio"])
 #--------------------------------------#
 #--------- End of User Inputs ---------#
 #--------------------------------------#
@@ -163,7 +165,7 @@ def Run_Module():
         Feed_Sweep_Mol = Membrane["Feed_Flow"] * Membrane["Feed_Composition"][i] + Membrane["Sweep_Flow"] * Membrane["Sweep_Composition"][i]
         Retentate_Mol  = Membrane["Retentate_Flow"] * Membrane["Retentate_Composition"][i]
         Permeate_Mol   = Membrane["Permeate_Flow"]  * Membrane["Permeate_Composition"][i]
-        error = abs((Feed_Sweep_Mol - Retentate_Mol - Permeate_Mol) / Feed_Sweep_Mol)
+        error = abs((Feed_Sweep_Mol - Retentate_Mol - Permeate_Mol) / (Feed_Sweep_Mol+1e-10))
         errors.append(error)
 
     cumulated_error = sum(errors)
@@ -239,6 +241,7 @@ def plot_composition_profiles(profile):
     plt.tight_layout()
     fig2_path = os.path.join(output_directory, f"flow_profile_{run_folder}.png")
     fig2.savefig(fig2_path, dpi=150)
+
 
     # --- Figure 3: Permeance profiles (only if available) ---
     perm_cols = [f"perm{j+1} (GPU)" for j in range(J)]

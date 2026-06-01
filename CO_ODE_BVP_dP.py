@@ -5,7 +5,7 @@ from scipy.optimize import least_squares
 import numpy as np
 import pandas as pd
 
-def mass_balance_CC_ODE_BVP_dP(vars):
+def mass_balance_CO_ODE_BVP_dP(vars):
 
     Membrane, Component_properties, Fibre_Dimensions = vars
     Membrane["Total_Flow"] = Membrane["Feed_Flow"] + Membrane["Sweep_Flow"]
@@ -44,6 +44,26 @@ def mass_balance_CC_ODE_BVP_dP(vars):
 
         return visc_mix
 
+
+    '''    def mixture_visc(composition):
+            y = composition
+            visc = np.zeros(J)
+            params = np.array(Component_properties["Viscosity_param"])
+            visc = 1e-6 * (params[:, 0] * Membrane["Temperature"] + params[:, 1]) 
+            Mw = Component_properties["Molar_mass"]
+            phi = np.zeros((J, J))
+            for i in range(J):
+                for j in range(J):
+                    if i != j:
+                        phi[i][j] = ( ( 1 + ( visc[i]/visc[j] )**0.5 * ( Mw[j]/Mw[i] )**0.25 ) **2 ) / ( ( 8 * ( 1 + Mw[i]/Mw[j] ) )**0.5 )
+                    else:
+                        phi[i][j] = 1
+            nu = np.zeros(J)
+            for i in range(J):
+                nu[i] = y[i] * visc[i] / sum(y[j] * phi[i][j] for j in range(J))
+            return sum(nu)
+    '''
+
     '''----------------------------------------------------------###
     ###--------------- Pressure Drop Calculation ----------------###
     ###----------------------------------------------------------'''
@@ -54,14 +74,11 @@ def mass_balance_CC_ODE_BVP_dP(vars):
         # P shape: (n_pts,)
         visc_mix = mixture_visc(composition)   # shape (n_pts,)
         D_in = Fibre_Dimensions["D_in"]
-        #convert flow in mol/s to m3/s using ideal gas law at permeate conditions
         Q = Q * 8.314 * Membrane["Temperature"] / P  # now in m3/s
         Q_per_fibre = Q / Fibre_Dimensions['Number_Fibre']
         R = 8.314
-        velocity = (4 * Q_per_fibre) / (math.pi * D_in**2)  # velocity in each fibre, shape (n_pts,)
-        #(velocity)
         nu = (Q_per_fibre * R * Membrane["Temperature"]) / P
-        dP_dz = (128 * visc_mix) / (math.pi * D_in**4) * nu #Hagen Poiseuille
+        dP_dz = (128 * visc_mix) / (math.pi * D_in**4 ) * nu #Hagen Poiseuille
         return dP_dz   # shape (n_pts,)
 
     def pressure_drop_retentate(composition, Q, P):
@@ -69,10 +86,9 @@ def mass_balance_CC_ODE_BVP_dP(vars):
         D_hyd = Fibre_Dimensions["D_hydraulic"]
         Q = Q * 8.314 * Membrane["Temperature"] / P  # now in m3/s
         Q_per_module = Q / Fibre_Dimensions['Number_Module']
-        velocity = (Q_per_module)/(math.pi* (Fibre_Dimensions["D_Module"]/2)**2 - math.pi/4 * (Fibre_Dimensions["D_out"]**2)* Fibre_Dimensions['Number_Fibre'])  # velocity in the module, shape (n_pts,)
         R = 8.314
         nu = (Q_per_module * R * Membrane["Temperature"]) / P
-        dP_dz = (128 * visc_mix) / (math.pi * Fibre_Dimensions["D_hydraulic"]**4)  * nu
+        dP_dz = (128 * visc_mix) / (math.pi * D_hyd**4 ) * nu
         return dP_dz   # shape (n_pts,)
   
     '''---------------------------------------------------------------###
@@ -144,8 +160,8 @@ def mass_balance_CC_ODE_BVP_dP(vars):
 
     def membrane_odes(z, var):
         u_x = np.maximum(var[:J], 1e-10)
-        u_y = np.minimum(var[J:2*J], -1e-10) 
-        P_ret = np.maximum(var[2*J],   1e3)   # minimum 0.01 bar
+        u_y = np.maximum(var[J:2*J], 1e-10) 
+        P_ret = np.maximum(var[2*J], 1e3)   # minimum 0.01 bar
         P_perm  = np.maximum(var[2*J+1], 1e3)   # minimum 0.01 bar
 
         A      = Fibre_Dimensions["D_out"] * math.pi * Fibre_Dimensions["Number_Fibre"]
@@ -179,8 +195,8 @@ def mass_balance_CC_ODE_BVP_dP(vars):
         # retentate pressure drops in +z direction
         dP_feed_dz = -pressure_drop_retentate(x, sum_ux * Ttot, P_ret)
 
-        # permeate pressure rises in +z direction (flows in -z)
-        dP_perm_dz = +pressure_drop_permeate(np.abs(y), -sum_uy * Ttot, P_perm)
+        # permeate pressure drops in +z direction (flows in +z in co-current)
+        dP_perm_dz = -pressure_drop_permeate(np.abs(y), sum_uy * Ttot, P_perm)
 
 
         return np.concatenate([du_x_dz, du_y_dz, 
@@ -189,14 +205,14 @@ def mass_balance_CC_ODE_BVP_dP(vars):
     
     def bc(ya, yb):
         feed_norm        =  Membrane["Feed_Composition"]  * Membrane["Feed_Flow"]  / Membrane["Total_Flow"]
-        sweep_norm       = -Membrane["Sweep_Composition"] * Membrane["Sweep_Flow"] / Membrane["Total_Flow"]
+        sweep_norm       =  Membrane["Sweep_Composition"] * Membrane["Sweep_Flow"] / Membrane["Total_Flow"]
         feed_pressure    =  Membrane["Pressure_Feed"]
         perm_pressure    =  Membrane["Pressure_Permeate"]
         return np.concatenate([
             ya[:J]    - feed_norm,
-            yb[J:2*J] - sweep_norm,
+            ya[J:2*J] - sweep_norm,
             [ya[2*J]   - feed_pressure],    # retentate pressure at z=0 — index 2*J
-            [ya[2*J+1] - perm_pressure],    # permeate  pressure at z=0 — index 2*J+1
+            [yb[2*J+1] - perm_pressure],    # permeate  pressure at z=L — index 2*J+1
         ])
 
     sol = approx_shooting_guess() #conducts a simplified mass balance to get an initial guess
@@ -205,10 +221,10 @@ def mass_balance_CC_ODE_BVP_dP(vars):
     cut_r_L    = sol.x[-2]
     cut_p_0    = sol.x[-1]
     U_x_z0_approx = x_L_approx * cut_r_L #approx 
-    U_y_zL_approx  = -y_0_approx * cut_p_0
+    U_y_zL_approx  = y_0_approx * cut_p_0
 
-    U_x_feed_norm  =  Membrane["Feed_Composition"]  * Membrane["Feed_Flow"]  / Membrane["Total_Flow"]
-    U_y_sweep_norm = -Membrane["Sweep_Composition"] * Membrane["Sweep_Flow"] / Membrane["Total_Flow"]
+    U_x_feed_norm  = Membrane["Feed_Composition"]  * Membrane["Feed_Flow"]  / Membrane["Total_Flow"]
+    U_y_sweep_norm = Membrane["Sweep_Composition"] * Membrane["Sweep_Flow"] / Membrane["Total_Flow"]
 
     # Initialise the solution on a coarse grid, using the approximated values from the simplified mass balance
     x_init = np.linspace(0, Fibre_Dimensions["Length"], 10)
@@ -218,7 +234,7 @@ def mass_balance_CC_ODE_BVP_dP(vars):
     U_y_init = np.zeros((J, n_init))
     for i in range(J):
         U_x_init[i, :] = np.linspace(U_x_feed_norm[i], U_x_z0_approx[i], n_init) # initial guess of linear profile between feed and retentate outlet
-        U_y_init[i, :] = np.linspace(U_y_zL_approx[i], U_y_sweep_norm[i], n_init)
+        U_y_init[i, :] = np.linspace(U_y_sweep_norm[i], U_y_zL_approx[i], n_init)
 
     P_perm_init = np.full(n_init, Membrane["Pressure_Permeate"]) #initial guess of constant permeate pressure, will be updated by solver to account for pressure drop
     P_feed_init = np.full(n_init, Membrane["Pressure_Feed"])
@@ -255,8 +271,8 @@ def mass_balance_CC_ODE_BVP_dP(vars):
     x_profiles[:, safe_x] = U_x_profile[:, safe_x] / sum_ux_prof[safe_x]
     y_profiles[:, safe_y] = U_y_profile[:, safe_y] / sum_uy_prof[safe_y]
 
-    Qr_profile =  np.sum(U_x_profile, axis=0)
-    Qp_profile = -np.sum(U_y_profile, axis=0)
+    Qr_profile = np.sum(U_x_profile, axis=0)
+    Qp_profile = np.sum(U_y_profile, axis=0)
 
     P_feed_profile = y_sol[2*J,   :]   # retentate pressure
     P_perm_profile = y_sol[2*J+1, :]   # permeate  pressure
@@ -293,15 +309,15 @@ def mass_balance_CC_ODE_BVP_dP(vars):
    
     #print(f"Retentate pressure drop: {abs(P_feed_profile[0] - P_feed_profile[-1]):.2f} Pa")
     #print(f"Permeate pressure drop: {abs(P_perm_profile[-1] - P_perm_profile[0]):.2f} Pa")
-
+    
 
     profile = pd.DataFrame(data)
 
     x_ret  = profile.iloc[-1][[f"x{i+1}" for i in range(J)]].values
-    y_perm = profile.iloc[0][[f"y{i+1}" for i in range(J)]].values
+    y_perm = profile.iloc[-1][[f"y{i+1}" for i in range(J)]].values  # z=L not z=0
     Qr     = profile.iloc[-1]["Qr"]
-    Qp     = profile.iloc[0]["Qp"]
-
+    Qp     = profile.iloc[-1]["Qp"]
+    
     '''
     #plot pressure profiles on two y-axes
     fig, ax1 = plt.subplots(figsize=(8, 5))
@@ -323,13 +339,6 @@ def mass_balance_CC_ODE_BVP_dP(vars):
     plt.figure(figsize=(8, 5))
     plt.plot(profile["norm_z"], Membrane["Pressure_Feed"] * profile["x1"] - Membrane["Pressure_Permeate"] * profile["y1"], label="Driving Force (Pa)", color='blue')
     '''
-
-    print("Pressure drop across the module:")
-    #in retentate, compare pressure at z=0 and z=L
-    print(f"Retentate pressure drop: {abs(profile['P_feed'].iloc[0] - profile['P_feed'].iloc[-1]):.2f} Pa")
-    #in permeate, compare pressure at z=0 and z=L
-    print(f"Permeate pressure drop: {abs(profile['P_perm'].iloc[-1] - profile['P_perm'].iloc[0]):.2f} Pa")
-    
 
     '''
     if Membrane["Pressure_Drop"]:
