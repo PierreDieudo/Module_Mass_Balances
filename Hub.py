@@ -18,43 +18,52 @@ def Hub_Connector(Export_to_mass_balance): #general because it will call the cor
     Membrane, Component_properties, Fibre_Dimensions = Export_to_mass_balance
 
     # Unpacking and transforming inlet variables and membrane parameters
-    
+
     Membrane["Permeance"] = [p * 3.348 * 1e-10 for p in Membrane["Permeance"]]  # convert from GPU to mol/m2.s.Pa
     #print(Membrane["Permeance"])
 
     Membrane["Pressure_Feed"] *= 1e5  #convert to Pa
-    Membrane["Pressure_Permeate"] *= 1e5  
+    Membrane["Pressure_Permeate"] *= 1e5
     Membrane["Total_Flow"]  = Membrane["Feed_Flow"]+Membrane["Sweep_Flow"]
 
     #number of components
     J = len(Membrane["Feed_Composition"])
 
-    if not J == len(Membrane["Feed_Composition"]) == len(Membrane["Sweep_Composition"]) == len(Component_properties["Viscosity_param"]):
-        raise ValueError("Number of components does not match data provided")
+    # [CORRECTED] Check every per-component input against J (the old check compared J with itself and skipped Permeance and Molar_mass)
+    component_inputs = {
+        "Sweep_Composition": Membrane["Sweep_Composition"],
+        "Permeance":         Membrane["Permeance"],
+        "Viscosity_param":   Component_properties["Viscosity_param"],
+        "Molar_mass":        Component_properties["Molar_mass"],
+    }
+    for name, values in component_inputs.items():
+        if len(values) != J:
+            raise ValueError(f"Number of components does not match data provided: {name} has {len(values)} entries, Feed_Composition has {J}")
 
     #Checks the input data for inconsistency
     if abs(sum(Membrane["Feed_Composition"]) - 1) > 1e-8:
         raise ValueError("Initial mole fractions do not sum to 1")
     if Membrane["Sweep_Flow"]!=0 and abs(sum(Membrane["Sweep_Composition"]) - 1) > 1e-8:
-        raise ValueError(f"Initial mole fractions do not sum to 1 ({(sum(Membrane["Sweep_Composition"])):.3e})")
-  
+        sweep_sum = sum(Membrane["Sweep_Composition"])
+        raise ValueError(f"Sweep mole fractions do not sum to 1 ({sweep_sum:.3e})")  # [CORRECTED] nested quotes in f-string failed before Python 3.12
+
     '''
     #Determines Module length and number of fibers to minimise pressure drop (Shao, Huang, 2006)
     def module_length_calc(L):
             R = 8.314 # J/(mol.K) - gas constant
             Delta = [0] * J
-          
+
             for i in range(J):
                 slope, intercept = Component_properties["Viscosity_param"][i]
                 visc = 1e-6*(slope * Membrane["Temperature"] + intercept) # Viscosity in Pa.s (from trend obtain from NIST)
                 Delta[i] = 8 * math.sqrt(2 * R * Membrane["Temperature"] * Fibre_Dimensions["D_out"] * visc *  Membrane["Permeance"][i] * (L**2) / (Fibre_Dimensions["D_out"]**4 * Membrane["Pressure_Permeate"]))
-     
+
             return max(Delta)
 
     def objective(L):
-            
+
         max_delta = module_length_calc(L)
-       
+
         # Penalise values of max_delta that exceed 0.4
         if max_delta > 0.4:
             return max_delta - 0.4 #penalty
@@ -70,9 +79,12 @@ def Hub_Connector(Export_to_mass_balance): #general because it will call the cor
         Fibre_Dimensions['Length'] = 0.1 #m - module length
     '''
 
+    # [CORRECTED] Recompute module area from the current Length, so it stays consistent if Length is changed above
+    Fibre_Dimensions["A_module"] = Fibre_Dimensions["Fibre_per_Module"] * Fibre_Dimensions["Length"] * math.pi * Fibre_Dimensions["D_out"] # m2
+
     fibre_area = math.pi * Fibre_Dimensions['Length'] * Fibre_Dimensions["D_out"] #m2
-    Fibre_Dimensions["Number_Fibre"] =  Membrane["Area"] / fibre_area #number of fibres in the module
-    Fibre_Dimensions["Number_Module"] = math.ceil(Membrane["Area"] / Fibre_Dimensions["A_module"]) #number of modules in the system"
+    Fibre_Dimensions["Number_Fibre"] =  Membrane["Area"] / fibre_area #number of fibres in the system
+    Fibre_Dimensions["Number_Module"] = math.ceil(Membrane["Area"] / Fibre_Dimensions["A_module"]) #number of modules in the system
 
     #Solving the mass balance (for now humid conditions are not considered)
     vars = Membrane, Component_properties, Fibre_Dimensions
@@ -91,14 +103,14 @@ def Hub_Connector(Export_to_mass_balance): #general because it will call the cor
         if not Membrane["Pressure_Drop"]:
             from CO_ODE_IVP import mass_balance_CO_ODE
             return mass_balance_CO_ODE(vars)
-        else: 
+        else:
             from CO_ODE_BVP_dP import mass_balance_CO_ODE_BVP_dP
             return mass_balance_CO_ODE_BVP_dP(vars)
     elif Membrane["Solving_Method"] == 'CC_ODE':
         if not Membrane["Pressure_Drop"]:
             from CC_ODE_BVP import mass_balance_CC_ODE_BVP
             return mass_balance_CC_ODE_BVP(vars)
-        else: 
+        else:
             from CC_ODE_BVP_dP import mass_balance_CC_ODE_BVP_dP
             return mass_balance_CC_ODE_BVP_dP(vars)
     elif Membrane["Solving_Method"] == 'Chiara':
@@ -110,5 +122,3 @@ def Hub_Connector(Export_to_mass_balance): #general because it will call the cor
             return mass_balance_CC_Chiara_dPerm_dz_dP(vars)
     else:
         raise ValueError("Solving_Method not recognised")
-
-
