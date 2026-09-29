@@ -38,19 +38,19 @@ Run_Name  = ''  # Optional name for this run (e.g. 'high_pressure_test').
                 # Leave as '' to use the timestamp only as the subfolder name.
 
 Membrane = {
-    "Solving_Method": 'Chiara',                     # 'CC_ODE' or 'CO_ODE' - CC is for counter-current, CO is for co-current. Chiara for counter current with variable permeance.
+    "Solving_Method": 'CC_ODE',                     # 'CC_ODE' or 'CO_ODE' - CC is for counter-current, CO is for co-current. Chiara for counter current with variable permeance.
     "Temperature": 25+273.15,                   # Kelvin
-    "Feed_Composition": [0.75024,0.12337,0.12639,0], # molar fraction
+    "Feed_Composition": [0.2,0.6,0.2], # molar fraction
     "Feed_Flow": 100,                           # mol/s (PS: 1 mol/s = 3.6 kmol/h)
-    "Pressure_Feed": 5,                         # bar
+    "Pressure_Feed": 2,                         # bar
     "Pressure_Permeate": 0.22,                   # bar
-    "Area": 1500,                                # m2 ; a membrane module is about 251 m2
-    "Permeance": [445,46,57,445],              # GPU
+    "Area": 1000,                                # m2 ; a membrane module is about 251 m2
+    "Permeance": [1000,50,100],              # GPU
     "fac": [1,0,0,0],                        # factor for permeance variation along the module - for Chiara method only
-    "Sweep_Option": False,                    # True or False - use a sweep or not
+    "Sweep_Option": True,                    # True or False - use a sweep or not
     "Sweep_Source": 'User',                   # 'User' or 'Recycling' - where the sweep comes from
     "Recycling_Ratio": 0,                     # Fraction of a stream (likely retentate) being sent back as sweep 
-    "Pressure_Drop": True, 
+    "Pressure_Drop": False, 
     "Export_Profile": False,                    # True or False - export the profile to a CSV file        
     "Plot_Profiles": False,                      # True or False - plot the profile of the membrane"
     }
@@ -58,16 +58,16 @@ Membrane = {
 #print(Membrane)
 
 Component_properties = {
-    "Viscosity_param": ([0.0479,0.6112],[0.0466,3.8874],[0.0558,3.8970], [0.03333, -0.23498]),  # Viscosity parameters for each component: slope and intercept for the viscosity correlation wiht temperature (in K) - from NIST
-    "Molar_mass": [44.009, 28.0134, 31.999,18.01528],                                           # Molar mass of each component in g/mol
+    "Viscosity_param": ([0.0479,0.6112],[0.0466,3.8874],[0.0558,3.8970]),  # Viscosity parameters for each component: slope and intercept for the viscosity correlation wiht temperature (in K) - from NIST
+    "Molar_mass": [44.009, 28.0134, 31.999],                                           # Molar mass of each component in g/mol
     }
 
 Fibre_Dimensions = {
     "D_in" : 600 * 1e-6, # Inner diameter in m (from mm)
     "D_out" : 800 * 1e-6, # Outer diameter in m (from mm)
     "Volume_Packing": 0.3, # (m3/m3) Volume packing of the fibres in the module
-    "Fibre_per_Module": 100000, # Number of fibres in a module
-    "Length": 1, # Length of the module in m
+    "Fibre_per_Module": 10000, # Number of fibres in a module
+    "Length": 0.3, # Length of the module in m
     }
 
 # Calculate module dimensions based on the fibre dimensions and packing
@@ -82,8 +82,8 @@ Fibre_Dimensions["A_module"] = A_module
 #print(Fibre_Dimensions)
 
 User_Sweep = { # Only if Sweep_Option is True and Sweep source is User
-    "Sweep_Flow": 0.1,                         # mol/s 
-    "Sweep_Composition": [0.5,0.5,0,0],          # molar fraction
+    "Sweep_Flow": 10,                         # mol/s 
+    "Sweep_Composition": [0,1,0],          # molar fraction
     }
 
 # Calculate Q/A ratio as an idicator
@@ -175,7 +175,7 @@ def Run_Module():
 
     Recovery  = Membrane["Permeate_Composition"][0] * Membrane["Permeate_Flow"] / (Membrane["Feed_Flow"] * Membrane["Feed_Composition"][0]) * 100
     Purity    = Membrane["Permeate_Composition"][0] * 100
-    Stage_cut = Membrane["Permeate_Flow"] / (Membrane["Feed_Flow"] + Membrane["Sweep_Flow"]) * 100
+    Stage_cut = (Membrane["Permeate_Flow"]-Membrane["Sweep_Flow"]) / (Membrane["Feed_Flow"]) * 100
     print(f'Simulation finished with Recovery: {Recovery:.2f}%, Purity: {Purity:.2f}%, and a stage cut of {Stage_cut:.2f}%')
     print()
     return profile

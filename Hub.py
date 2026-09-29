@@ -20,6 +20,8 @@ def Hub_Connector(Export_to_mass_balance): #general because it will call the cor
     # Unpacking and transforming inlet variables and membrane parameters
     
     Membrane["Permeance"] = [p * 3.348 * 1e-10 for p in Membrane["Permeance"]]  # convert from GPU to mol/m2.s.Pa
+    #print(Membrane["Permeance"])
+
     Membrane["Pressure_Feed"] *= 1e5  #convert to Pa
     Membrane["Pressure_Permeate"] *= 1e5  
     Membrane["Total_Flow"]  = Membrane["Feed_Flow"]+Membrane["Sweep_Flow"]

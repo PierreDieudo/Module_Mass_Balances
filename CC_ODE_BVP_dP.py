@@ -69,10 +69,20 @@ def mass_balance_CC_ODE_BVP_dP(vars):
         D_hyd = Fibre_Dimensions["D_hydraulic"]
         Q = Q * 8.314 * Membrane["Temperature"] / P  # now in m3/s
         Q_per_module = Q / Fibre_Dimensions['Number_Module']
-        velocity = (Q_per_module)/(math.pi* (Fibre_Dimensions["D_Module"]/2)**2 - math.pi/4 * (Fibre_Dimensions["D_out"]**2)* Fibre_Dimensions['Number_Fibre'])  # velocity in the module, shape (n_pts,)
+        A_shell = (math.pi * 1/4 * (Fibre_Dimensions["D_Module"])**2)-(Fibre_Dimensions["Fibre_per_Module"] * math.pi * 1/4 * (Fibre_Dimensions["D_out"])**2) #empty area of shell minus the area occupied by the fibres
+        velocity = (Q_per_module)/A_shell  # velocity in the module, shape (n_pts,)
         R = 8.314
         nu = (Q_per_module * R * Membrane["Temperature"]) / P
         dP_dz = (128 * visc_mix) / (math.pi * Fibre_Dimensions["D_hydraulic"]**4)  * nu
+        
+        print(f'Cross sectional area of the module: {A_shell} m2')
+        print(f'Flow per module: {Q_per_module}')
+        print(f'Retentate area: {A_shell}')
+        print(f"Velocity: {velocity}")
+        print(f"Pressure Drop: {dP_dz}")
+        print(f'Flowrate in mol/s: {Q/(8.314*Membrane["Temperature"])*P}')
+        print()
+        
         return dP_dz   # shape (n_pts,)
   
     '''---------------------------------------------------------------###
@@ -178,7 +188,6 @@ def mass_balance_CC_ODE_BVP_dP(vars):
 
         # retentate pressure drops in +z direction
         dP_feed_dz = -pressure_drop_retentate(x, sum_ux * Ttot, P_ret)
-
         # permeate pressure rises in +z direction (flows in -z)
         dP_perm_dz = +pressure_drop_permeate(np.abs(y), -sum_uy * Ttot, P_perm)
 
@@ -302,7 +311,7 @@ def mass_balance_CC_ODE_BVP_dP(vars):
     Qr     = profile.iloc[-1]["Qr"]
     Qp     = profile.iloc[0]["Qp"]
 
-    '''
+    
     #plot pressure profiles on two y-axes
     fig, ax1 = plt.subplots(figsize=(8, 5))
     ax1.plot(profile["norm_z"], profile["P_feed"], label="Retentate Pressure (Pa)", color='red')
@@ -315,7 +324,7 @@ def mass_balance_CC_ODE_BVP_dP(vars):
     ax2.tick_params(axis='y', labelcolor='blue')
     plt.title("Pressure Profiles Along the Module")
     plt.show()
-    '''
+    
     
 
     '''
